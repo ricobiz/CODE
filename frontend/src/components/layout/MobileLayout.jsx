@@ -12,14 +12,21 @@ export const MobileLayout = () => {
   const { isConsensusMode } = useConsensus();
   
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col bg-background">
+    <div 
+      className="flex flex-col bg-background"
+      style={{ 
+        height: 'calc(100vh - 4rem)',
+        height: 'calc(100dvh - 4rem)', // Dynamic viewport height for mobile
+        minHeight: 0
+      }}
+    >
       {/* Progress Panel */}
-      <div className="px-3 pt-3">
+      <div className="flex-shrink-0 px-3 pt-3">
         <ProgressPanel />
       </div>
       
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <TabsList className="w-full grid grid-cols-3 rounded-none border-b neon-border bg-card/50 h-12">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+        <TabsList className="flex-shrink-0 w-full grid grid-cols-3 rounded-none border-b neon-border bg-card/50 h-12">
           <TabsTrigger 
             value="preview" 
             className="gap-2 data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan data-[state=active]:border-b-2 data-[state=active]:border-neon-cyan"
@@ -45,17 +52,28 @@ export const MobileLayout = () => {
           )}
         </TabsList>
         
-        <div className="flex-1 overflow-hidden">
-          <TabsContent value="preview" className="h-full m-0 data-[state=inactive]:hidden">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <TabsContent 
+            value="preview" 
+            className="h-full m-0 data-[state=inactive]:hidden"
+          >
             <PreviewPanel />
           </TabsContent>
           
-          <TabsContent value="chat" className="h-full m-0 data-[state=inactive]:hidden">
+          <TabsContent 
+            value="chat" 
+            className="h-full m-0 data-[state=inactive]:hidden"
+            style={{ touchAction: 'pan-y' }}
+          >
             <ChatPanel />
           </TabsContent>
           
           {isConsensusMode && (
-            <TabsContent value="consensus" className="h-full m-0 p-3 data-[state=inactive]:hidden">
+            <TabsContent 
+              value="consensus" 
+              className="h-full m-0 p-3 data-[state=inactive]:hidden overflow-auto"
+              style={{ touchAction: 'pan-y' }}
+            >
               <ConsensusRoom />
             </TabsContent>
           )}
