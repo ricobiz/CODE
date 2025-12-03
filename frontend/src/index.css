@@ -152,6 +152,71 @@ code {
                     inset 0 0 10px hsl(var(--accent) / 0.05);
     }
     
+    /* Animated border - бегающий огонек */
+    .animated-border {
+        position: relative;
+        background: hsl(var(--card));
+        border: 1px solid transparent;
+    }
+    
+    .animated-border::before {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        background: linear-gradient(
+            90deg,
+            hsl(var(--neon-cyan)),
+            hsl(var(--neon-purple)),
+            hsl(var(--neon-pink)),
+            hsl(var(--neon-cyan))
+        );
+        background-size: 200% 100%;
+        border-radius: inherit;
+        animation: borderFlow 3s linear infinite;
+        z-index: -1;
+        opacity: 0.8;
+    }
+    
+    @keyframes borderFlow {
+        0% {
+            background-position: 0% 0%;
+        }
+        100% {
+            background-position: 200% 0%;
+        }
+    }
+    
+    /* Animated border для активных кнопок */
+    .btn-active-animated {
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn-active-animated::before {
+        content: '';
+        position: absolute;
+        inset: -1px;
+        background: linear-gradient(
+            45deg,
+            transparent 30%,
+            hsl(var(--neon-cyan) / 0.5) 50%,
+            transparent 70%
+        );
+        background-size: 200% 200%;
+        border-radius: inherit;
+        animation: borderGlow 2s linear infinite;
+        z-index: -1;
+    }
+    
+    @keyframes borderGlow {
+        0% {
+            background-position: 200% 0;
+        }
+        100% {
+            background-position: -200% 0;
+        }
+    }
+    
     /* Neon glow effects */
     .glow-cyan {
         box-shadow: var(--shadow-neon-cyan);
