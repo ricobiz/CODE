@@ -62,7 +62,7 @@ export const MessageList = () => {
           Start Building
         </h3>
         <p className="text-sm text-muted-foreground max-w-xs">
-          Ask your AI team to create something amazing. They'll collaborate and build it together.
+          Ask your AI team to create something amazing. They will collaborate and build it together.
         </p>
       </div>
     );
