@@ -4,17 +4,29 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 // OpenRouter API
-export const sendChatMessage = async (message, models, apiKey, conversationHistory) => {
+export const sendChatMessage = async (message, models, apiKey, conversationHistory, consensusMode = false) => {
   try {
     const response = await axios.post(`${API}/chat`, {
       message,
       models,
       api_key: apiKey,
-      conversation_history: conversationHistory
+      conversation_history: conversationHistory,
+      consensus_mode: consensusMode
     });
     return response.data;
   } catch (error) {
     console.error('Chat API error:', error);
+    throw error;
+  }
+};
+
+// Get consensus status
+export const getConsensusStatus = async (sessionId) => {
+  try {
+    const response = await axios.get(`${API}/consensus/${sessionId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Consensus status error:', error);
     throw error;
   }
 };
