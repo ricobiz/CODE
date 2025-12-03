@@ -1,75 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
     margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+    font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
+        /* Base Colors - Dark Theme */
+        --background: 222 47% 11%;          /* Deep navy blue #0a0e1e */
+        --foreground: 210 40% 98%;          /* Soft white #f8fafc */
+        
+        /* Card & Surface */
+        --card: 222 47% 15%;                /* Slightly lighter navy #141826 */
+        --card-foreground: 210 40% 98%;
+        --popover: 222 47% 13%;             /* #0f1320 */
+        --popover-foreground: 210 40% 98%;
+        
+        /* Primary - Blue */
+        --primary: 217 91% 60%;             /* Bright blue #3b82f6 */
+        --primary-foreground: 0 0% 100%;
+        --primary-glow: 217 91% 70%;        /* Lighter blue for glow */
+        
+        /* Secondary - Purple */
+        --secondary: 258 90% 66%;           /* Purple #8b5cf6 */
+        --secondary-foreground: 0 0% 100%;
+        --secondary-glow: 258 90% 76%;      /* Lighter purple */
+        
+        /* Accent - Cyan */
+        --accent: 189 94% 43%;              /* Cyan #06b6d4 */
+        --accent-foreground: 0 0% 100%;
+        
+        /* Muted */
+        --muted: 217 33% 17%;               /* Muted blue-gray #1e293b */
+        --muted-foreground: 215 20% 65%;    /* Light gray #94a3b8 */
+        
+        /* Destructive */
+        --destructive: 0 84% 60%;           /* Red #ef4444 */
         --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
+        
+        /* Success */
+        --success: 142 76% 36%;             /* Green #10b981 */
+        --success-foreground: 0 0% 98%;
+        
+        /* Warning */
+        --warning: 38 92% 50%;              /* Orange #f59e0b */
+        --warning-foreground: 0 0% 98%;
+        
+        /* Border & Input */
+        --border: 217 33% 20%;              /* Border color #252f3f */
+        --input: 217 33% 20%;
+        --ring: 217 91% 60%;                /* Focus ring matches primary */
+        
+        /* Gradients */
+        --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(258 90% 66%));
+        --gradient-glow: linear-gradient(135deg, hsl(217 91% 70% / 0.3), hsl(258 90% 76% / 0.3));
+        --gradient-surface: linear-gradient(180deg, hsl(222 47% 13%), hsl(222 47% 11%));
+        
+        /* Shadows */
+        --shadow-sm: 0 1px 2px 0 hsl(222 47% 5% / 0.3);
+        --shadow-md: 0 4px 6px -1px hsl(222 47% 5% / 0.4), 0 2px 4px -1px hsl(222 47% 5% / 0.3);
+        --shadow-lg: 0 10px 15px -3px hsl(222 47% 5% / 0.4), 0 4px 6px -2px hsl(222 47% 5% / 0.3);
+        --shadow-glow: 0 0 20px hsl(217 91% 60% / 0.3), 0 0 40px hsl(217 91% 60% / 0.1);
+        --shadow-glow-purple: 0 0 20px hsl(258 90% 66% / 0.3), 0 0 40px hsl(258 90% 66% / 0.1);
+        
+        /* Animations */
+        --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-bounce: 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        
+        --radius: 0.75rem;
+        
+        /* Chart colors */
+        --chart-1: 217 91% 60%;
+        --chart-2: 258 90% 66%;
+        --chart-3: 189 94% 43%;
+        --chart-4: 142 76% 36%;
+        --chart-5: 38 92% 50%;
     }
-    .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
+    
+    /* Light mode (optional) */
+    .light {
+        --background: 0 0% 100%;
+        --foreground: 222 47% 11%;
+        --card: 0 0% 100%;
+        --card-foreground: 222 47% 11%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 222 47% 11%;
+        --primary: 217 91% 60%;
+        --primary-foreground: 0 0% 98%;
+        --secondary: 258 90% 66%;
         --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
+        --muted: 210 40% 96%;
+        --muted-foreground: 215 16% 47%;
+        --accent: 189 94% 43%;
         --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
+        --destructive: 0 84% 60%;
         --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+        --ring: 217 91% 60%;
     }
 }
 
@@ -79,6 +118,101 @@ code {
     }
     body {
         @apply bg-background text-foreground;
+        font-feature-settings: 'rlig' 1, 'calt' 1;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Space Grotesk', sans-serif;
+    }
+}
+
+/* Custom scrollbar */
+@layer components {
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-track {
+        @apply bg-muted/30;
+        border-radius: 4px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        @apply bg-muted;
+        border-radius: 4px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        @apply bg-muted-foreground/50;
+    }
+    
+    /* Glow effects */
+    .glow-primary {
+        box-shadow: var(--shadow-glow);
+    }
+    
+    .glow-secondary {
+        box-shadow: var(--shadow-glow-purple);
+    }
+    
+    /* Glassmorphism */
+    .glass {
+        background: hsl(var(--card) / 0.6);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid hsl(var(--border) / 0.5);
+    }
+    
+    /* Code block styling */
+    .code-block {
+        @apply bg-muted/50 rounded-lg p-4 font-mono text-sm;
+        border: 1px solid hsl(var(--border));
+    }
+}
+
+/* Animations */
+@layer utilities {
+    .animate-in {
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    .animate-slide-up {
+        animation: slideUp 0.3s ease-out;
+    }
+    
+    .animate-scale-in {
+        animation: scaleIn 0.2s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
     }
 }
 
