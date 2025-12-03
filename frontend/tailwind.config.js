@@ -7,6 +7,9 @@ module.exports = {
   ],
   theme: {
         extend: {
+            screens: {
+                'xs': '475px',
+            },
             fontFamily: {
                 sans: ['Inter', 'sans-serif'],
                 display: ['Space Grotesk', 'sans-serif'],
