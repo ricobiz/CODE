@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { Button } from '../ui/button';
-import { RefreshCw, ExternalLink } from 'lucide-react';
+import { RefreshCw, ExternalLink, Maximize2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 
 export const PreviewPanel = () => {
@@ -18,10 +18,8 @@ export const PreviewPanel = () => {
     const iframe = iframeRef.current;
     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
     
-    // Build HTML content
     let html = files['index.html'] || '<html><body></body></html>';
     
-    // Inject CSS
     if (files['style.css']) {
       html = html.replace(
         '</head>',
@@ -29,7 +27,6 @@ export const PreviewPanel = () => {
       );
     }
     
-    // Inject JavaScript
     if (files['script.js']) {
       html = html.replace(
         '</body>',
@@ -37,7 +34,6 @@ export const PreviewPanel = () => {
       );
     }
     
-    // Add mobile viewport meta tag if not present
     if (!html.includes('viewport')) {
       html = html.replace(
         '<head>',
@@ -45,7 +41,6 @@ export const PreviewPanel = () => {
       );
     }
     
-    // Write to iframe
     iframeDoc.open();
     iframeDoc.write(html);
     iframeDoc.close();
@@ -54,7 +49,6 @@ export const PreviewPanel = () => {
   const openInNewTab = () => {
     let html = files['index.html'] || '';
     
-    // Add viewport if missing
     if (!html.includes('viewport')) {
       html = html.replace(
         '<head>',
@@ -68,48 +62,46 @@ export const PreviewPanel = () => {
   };
   
   return (
-    <div className="h-full flex flex-col bg-card/30 md:border-t border-border">
-      {/* Header */}
-      <div className="flex items-center justify-between p-2 md:p-3 border-b border-border bg-card/50 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm md:text-sm font-display font-semibold text-foreground">Preview</h2>
-          <Badge variant="secondary" className="text-xs">
-            Live
-          </Badge>
-        </div>
+    <div className="h-full flex flex-col bg-background">
+      {/* Minimalist Header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b neon-border bg-card/20 backdrop-blur-sm">
+        <Badge variant="outline" className="text-xs border-neon-green/50 text-neon-green flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
+          Live
+        </Badge>
         
         <div className="flex items-center gap-1">
           <Button
             size="sm"
             variant="ghost"
             onClick={refreshPreview}
-            className="h-7 md:h-8 gap-1 text-xs px-2 md:px-3"
+            className="h-7 w-7 p-0 hover:bg-neon-cyan/10 hover:text-neon-cyan"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">Refresh</span>
           </Button>
           
           <Button
             size="sm"
             variant="ghost"
             onClick={openInNewTab}
-            className="h-7 md:h-8 gap-1 text-xs px-2 md:px-3"
+            className="h-7 w-7 p-0 hover:bg-neon-cyan/10 hover:text-neon-cyan"
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">Open</span>
           </Button>
         </div>
       </div>
       
-      {/* Preview iframe */}
-      <div className="flex-1 bg-white overflow-auto">
-        <iframe
-          ref={iframeRef}
-          key={previewKey}
-          title="Preview"
-          className="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin"
-        />
+      {/* Preview iframe with neon border */}
+      <div className="flex-1 p-2 bg-background">
+        <div className="h-full rounded-lg overflow-hidden neon-border">
+          <iframe
+            ref={iframeRef}
+            key={previewKey}
+            title="Preview"
+            className="w-full h-full border-0 bg-white"
+            sandbox="allow-scripts allow-same-origin"
+          />
+        </div>
       </div>
     </div>
   );

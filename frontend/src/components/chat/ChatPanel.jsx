@@ -5,13 +5,12 @@ import { ScrollArea } from '../ui/scroll-area';
 
 export const ChatPanel = () => {
   return (
-    <div className="h-full flex flex-col bg-card/30 md:border-r border-border">
-      {/* Header */}
-      <div className="p-3 md:p-4 border-b border-border bg-card/50 backdrop-blur-sm">
-        <h2 className="text-base md:text-lg font-display font-semibold text-foreground">AI Chat</h2>
-        <p className="text-xs text-muted-foreground mt-1">
-          Collaborate with multiple AI models
-        </p>
+    <div className="h-full flex flex-col bg-background">
+      {/* Minimalist Header */}
+      <div className="p-3 border-b neon-border bg-card/20 backdrop-blur-sm">
+        <h2 className="text-sm font-display font-semibold bg-gradient-to-r from-neon-cyan to-neon-purple bg-clip-text text-transparent">
+          AI Assistant
+        </h2>
       </div>
       
       {/* Messages */}
@@ -20,7 +19,7 @@ export const ChatPanel = () => {
       </ScrollArea>
       
       {/* Input */}
-      <div className="p-3 md:p-4 border-t border-border bg-card/50 backdrop-blur-sm">
+      <div className="p-3 border-t neon-border bg-card/20 backdrop-blur-sm">
         <ChatInput />
       </div>
     </div>

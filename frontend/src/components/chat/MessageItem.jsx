@@ -12,17 +12,17 @@ export const MessageItem = ({ message }) => {
       "flex items-start gap-3 animate-slide-up",
       isUser && "flex-row-reverse"
     )}>
-      {/* Avatar */}
+      {/* Avatar with neon glow */}
       <div className={cn(
         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
         isUser 
-          ? "bg-muted"
-          : "bg-gradient-to-br from-primary to-secondary glow-primary"
+          ? "bg-muted/50"
+          : "bg-gradient-to-br from-neon-cyan/20 to-neon-purple/20 border border-neon-cyan/30 agent-glow-1"
       )}>
         {isUser ? (
           <User className="w-4 h-4 text-muted-foreground" />
         ) : (
-          <Bot className="w-4 h-4 text-primary-foreground" />
+          <Bot className="w-4 h-4 text-neon-cyan" />
         )}
       </div>
       
@@ -33,35 +33,35 @@ export const MessageItem = ({ message }) => {
       )}>
         {/* Model badge for assistant */}
         {!isUser && modelName && (
-          <Badge variant="secondary" className="text-xs">
+          <Badge variant="outline" className="text-xs border-neon-purple/50 text-neon-purple">
             {modelName}
           </Badge>
         )}
         
-        {/* Message bubble */}
+        {/* Message bubble with glass effect */}
         <div className={cn(
-          "rounded-lg p-4 max-w-[85%]",
+          "rounded-lg p-3 max-w-[85%]",
           isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted/50 text-foreground border border-border"
+            ? "bg-gradient-to-br from-neon-cyan/20 to-neon-purple/20 border border-neon-cyan/30 text-foreground"
+            : "glass-neon text-foreground"
         )}>
-          <div className="text-sm whitespace-pre-wrap break-words">
+          <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
             {message.content}
           </div>
           
-          {/* Code blocks if any */}
+          {/* Code blocks indicator */}
           {message.content.includes('```') && (
             <div className="mt-2 pt-2 border-t border-border/50">
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs border-neon-cyan/50 text-neon-cyan">
                 <Code2 className="w-3 h-3 mr-1" />
-                Code included
+                Code
               </Badge>
             </div>
           )}
         </div>
         
         {/* Timestamp */}
-        <p className="text-xs text-muted-foreground px-2">
+        <p className="text-xs text-muted-foreground/70 px-2">
           {message.timestamp && new Date(message.timestamp).toLocaleTimeString()}
         </p>
       </div>
