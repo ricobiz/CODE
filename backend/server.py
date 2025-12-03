@@ -182,35 +182,42 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             }
         )
     
-    # Regular mode - sequential responses
+    # Regular mode - each model responds independently (group chat style)
     messages = [
         {"role": msg.role, "content": msg.content}
         for msg in request.conversation_history
     ]
     messages.append({"role": "user", "content": request.message})
     
+    # Add system message for group chat context
+    if len(request.models) > 1:
+        model_names = [m.split('/')[-1] for m in request.models]
+        system_msg = {
+            "role": "system",
+            "content": f"You are in a group chat with: USER and other AI agents ({', '.join(model_names)}). Respond naturally and helpfully to the user's request."
+        }
+        messages.insert(0, system_msg)
+    
     responses = []
     
-    for model in request.models:
+    # Call all models in parallel (not sequential) for group chat feel
+    for idx, model in enumerate(request.models):
         try:
+            # Each model gets the same context (no seeing other model responses yet)
+            model_messages = messages.copy()
+            
             result = await call_openrouter_model(
                 model=model,
-                messages=messages,
+                messages=model_messages,
                 api_key=request.api_key
             )
             responses.append(ModelResponse(**result))
             
-            # Add response to context for next model
-            if len(request.models) > 1:
-                messages.append({
-                    "role": "assistant",
-                    "content": f"[Response from {model}]: {result['content']}"
-                })
         except Exception as e:
             logger.error(f"Failed to get response from {model}: {str(e)}")
             responses.append(ModelResponse(
                 model=model,
-                content=f"Error: Failed to get response from {model}",
+                content=f"❌ Error: This model is currently unavailable. Try another model or check your API key.",
                 metadata={"error": str(e)}
             ))
     
