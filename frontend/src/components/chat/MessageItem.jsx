@@ -1,38 +1,42 @@
-import React from 'react';
-import { Bot, User, Code2, Users } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bot, User, Code2, Users, FileCode, CheckCircle2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
+import { useApp } from '../../contexts/AppContext';
+import { toast } from 'sonner';
 
 export const MessageItem = ({ message }) => {
+  const { updateFile, refreshPreview } = useApp();
+  const [codeApplied, setCodeApplied] = useState(false);
+  
   const isUser = message.role === 'user';
   const isSystem = message.model === 'system';
   
-  // Extract model name (show friendly name)
+  // Extract model name
   const getModelName = (model) => {
     if (!model || model === 'system') return 'System';
     
-    // Extract from format like "anthropic/claude-3.5-sonnet"
     const parts = model.split('/');
     const name = parts[parts.length - 1];
     
-    // Friendly names
     const friendlyNames = {
-      'claude-3.5-sonnet': 'Claude 3.5',
-      'claude-3-opus': 'Claude Opus',
-      'claude-3-haiku': 'Claude Haiku',
+      'claude-3.5-sonnet': 'Claude 3.5 Sonnet',
+      'claude-3-opus': 'Claude 3 Opus',
+      'claude-3-haiku': 'Claude 3 Haiku',
       'gpt-4o': 'GPT-4o',
       'gpt-4o-mini': 'GPT-4o Mini',
       'gpt-4-turbo': 'GPT-4 Turbo',
-      'gemini-pro-1.5': 'Gemini Pro',
-      'gemini-flash-1.5': 'Gemini Flash',
+      'gemini-pro-1.5': 'Gemini Pro 1.5',
+      'gemini-flash-1.5': 'Gemini Flash 1.5',
     };
     
-    return friendlyNames[name] || name.split('-')[0].toUpperCase();
+    return friendlyNames[name] || name.split('-').slice(0, 2).join(' ').toUpperCase();
   };
   
   const modelName = getModelName(message.model);
   
-  // Get color for each model (consistent)
+  // Get consistent color for model
   const getModelColor = (model) => {
     if (!model) return 'from-neon-cyan to-neon-purple';
     
@@ -49,6 +53,48 @@ export const MessageItem = ({ message }) => {
   
   const modelColor = getModelColor(message.model);
   
+  // Extract code blocks from message
+  const extractCodeBlocks = (text) => {
+    const codeBlockRegex = /```([\w\.\-]+)?\s*\n([\s\S]*?)```/g;
+    const blocks = [];
+    let match;
+    
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+      let filename = match[1] || 'code';
+      const code = match[2].trim();
+      
+      // Infer filename from language
+      if (['html', 'htm'].includes(filename.toLowerCase())) {
+        filename = 'index.html';
+      } else if (['css', 'style'].includes(filename.toLowerCase())) {
+        filename = 'style.css';
+      } else if (['js', 'javascript'].includes(filename.toLowerCase())) {
+        filename = 'script.js';
+      }
+      
+      blocks.push({ filename, code });
+    }
+    
+    return blocks;
+  };
+  
+  const codeBlocks = !isUser && !isSystem ? extractCodeBlocks(message.content) : [];
+  const hasCode = codeBlocks.length > 0;
+  
+  // Apply code to files
+  const applyCodeToPreview = () => {
+    codeBlocks.forEach(({ filename, code }) => {
+      updateFile(filename, code);
+    });
+    
+    setTimeout(() => {
+      refreshPreview();
+    }, 300);
+    
+    setCodeApplied(true);
+    toast.success(`Applied ${codeBlocks.length} file(s) to preview`);
+  };
+  
   // System messages (centered)
   if (isSystem) {
     return (
@@ -63,18 +109,18 @@ export const MessageItem = ({ message }) => {
   
   return (
     <div className={cn(
-      "flex items-start gap-3 mb-4 animate-slide-up",
+      "flex items-start gap-3 mb-6 animate-slide-up",
       isUser && "flex-row-reverse"
     )}>
-      {/* Avatar */}
+      {/* Avatar with initial */}
       <div className={cn(
-        "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-semibold text-xs",
+        "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm",
         isUser 
           ? "bg-gradient-to-br from-muted to-muted/50"
           : `bg-gradient-to-br ${modelColor} glow-cyan`
       )}>
         {isUser ? (
-          <User className="w-4 h-4 text-foreground" />
+          <User className="w-5 h-5 text-foreground" />
         ) : (
           <span className="text-background">{modelName.charAt(0)}</span>
         )}
@@ -82,7 +128,7 @@ export const MessageItem = ({ message }) => {
       
       {/* Message content */}
       <div className={cn(
-        "flex-1 space-y-1 max-w-[75%]",
+        "flex-1 space-y-2 max-w-[80%]",
         isUser && "flex flex-col items-end"
       )}>
         {/* Name and timestamp */}
@@ -90,17 +136,22 @@ export const MessageItem = ({ message }) => {
           "flex items-center gap-2 px-1",
           isUser && "flex-row-reverse"
         )}>
-          <span className="text-xs font-semibold text-foreground">
+          <span className="text-sm font-bold text-foreground">
             {isUser ? 'You' : modelName}
           </span>
+          {!isUser && message.model && (
+            <Badge variant="outline" className="text-xs border-neon-cyan/30 text-neon-cyan/70">
+              AI Agent
+            </Badge>
+          )}
           <span className="text-xs text-muted-foreground/70">
             {message.timestamp && new Date(message.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
           </span>
         </div>
         
-        {/* Message bubble (Telegram style) */}
+        {/* Message bubble */}
         <div className={cn(
-          "rounded-2xl px-4 py-2.5 relative",
+          "rounded-2xl px-4 py-3 relative",
           isUser
             ? "bg-primary text-primary-foreground rounded-tr-sm"
             : "glass-neon text-foreground rounded-tl-sm"
@@ -108,17 +159,34 @@ export const MessageItem = ({ message }) => {
           <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
             {message.content}
           </div>
-          
-          {/* Code indicator */}
-          {message.content.includes('```') && (
-            <div className="mt-2 pt-2 border-t border-border/30">
-              <Badge variant="outline" className="text-xs border-neon-cyan/50 text-neon-cyan">
-                <Code2 className="w-3 h-3 mr-1" />
-                Code
-              </Badge>
-            </div>
-          )}
         </div>
+        
+        {/* Code action buttons */}
+        {hasCode && (
+          <div className="flex items-center gap-2 px-1">
+            <Badge variant="outline" className="text-xs border-neon-cyan/50 text-neon-cyan flex items-center gap-1">
+              <FileCode className="w-3 h-3" />
+              {codeBlocks.length} file{codeBlocks.length > 1 ? 's' : ''}
+            </Badge>
+            
+            {!codeApplied ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={applyCodeToPreview}
+                className="h-7 text-xs border-neon-green/30 hover:border-neon-green hover:text-neon-green"
+              >
+                <Code2 className="w-3 h-3 mr-1" />
+                Apply to Preview
+              </Button>
+            ) : (
+              <Badge variant="outline" className="text-xs border-neon-green/50 text-neon-green flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                Applied
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

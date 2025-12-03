@@ -1,16 +1,38 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { MessageItem } from './MessageItem';
-import { Bot, Sparkles } from 'lucide-react';
+import { Bot, Sparkles, ChevronDown } from 'lucide-react';
+import { Button } from '../ui/button';
 
 export const MessageList = () => {
   const { messages, isGenerating } = useApp();
   const messagesEndRef = useRef(null);
+  const containerRef = useRef(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   
-  // Auto scroll to bottom
+  // Check if user is at bottom
+  const checkIfAtBottom = () => {
+    if (!containerRef.current) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+    const atBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setIsAtBottom(atBottom);
+    setShowScrollButton(!atBottom && messages.length > 0);
+  };
+  
+  // Auto scroll only if user is at bottom
   useEffect(() => {
+    if (isAtBottom && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isAtBottom]);
+  
+  // Scroll to bottom manually
+  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    setIsAtBottom(true);
+  };
   
   if (messages.length === 0) {
     return (
@@ -29,30 +51,49 @@ export const MessageList = () => {
   }
   
   return (
-    <div className="p-4">
-      {messages.map((message) => (
-        <MessageItem key={message.id} message={message} />
-      ))}
-      
-      {/* Typing indicator */}
-      {isGenerating && (
-        <div className="flex items-start gap-3 mb-4 animate-pulse">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center glow-cyan">
-            <Bot className="w-4 h-4 text-background" />
-          </div>
-          <div className="flex-1">
-            <div className="glass-neon rounded-2xl rounded-tl-sm px-4 py-3 max-w-[200px]">
-              <div className="flex gap-1.5">
-                <span className="w-2 h-2 bg-neon-cyan rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 bg-neon-cyan rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 bg-neon-cyan rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+    <div className="relative h-full">
+      <div 
+        ref={containerRef}
+        className="h-full overflow-y-auto custom-scrollbar p-4"
+        onScroll={checkIfAtBottom}
+      >
+        {messages.map((message) => (
+          <MessageItem key={message.id} message={message} />
+        ))}
+        
+        {/* Typing indicator */}
+        {isGenerating && (
+          <div className="flex items-start gap-3 mb-4 animate-pulse">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center glow-cyan">
+              <Bot className="w-4 h-4 text-background" />
+            </div>
+            <div className="flex-1">
+              <div className="glass-neon rounded-2xl rounded-tl-sm px-4 py-3 max-w-[200px]">
+                <div className="flex gap-1.5">
+                  <span className="w-2 h-2 bg-neon-cyan rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 bg-neon-cyan rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 bg-neon-cyan rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
               </div>
             </div>
           </div>
+        )}
+        
+        <div ref={messagesEndRef} />
+      </div>
+      
+      {/* Scroll to bottom button */}
+      {showScrollButton && (
+        <div className="absolute bottom-4 right-4 z-10">
+          <Button
+            size="sm"
+            onClick={scrollToBottom}
+            className="rounded-full w-10 h-10 p-0 shadow-lg glow-cyan"
+          >
+            <ChevronDown className="w-5 h-5" />
+          </Button>
         </div>
       )}
-      
-      <div ref={messagesEndRef} />
     </div>
   );
 };
