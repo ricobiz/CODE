@@ -1,6 +1,6 @@
 import React from 'react';
 import { MainLayout } from '../components/layout/MainLayout';
-import { Toaster } from '../ui/sonner';
+import { Toaster } from '../components/ui/sonner';
 
 export const HomePage = () => {
   return (
