@@ -101,3 +101,138 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Test the CodeAgent application (emergent.sh clone with OpenRouter API) - comprehensive UI and functionality testing"
+
+frontend:
+  - task: "UI Layout - 3-panel layout verification"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/layout/MainLayout.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "testing"
+        -comment: "Need to test 3-panel layout (Chat | Editor | Preview) visibility and responsiveness"
+
+  - task: "Header component functionality"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/layout/Header.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "testing"
+        -comment: "Need to test logo, mode toggle (Chat/Code), models indicator, Project and Settings buttons"
+
+  - task: "Chat Panel functionality"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/chat/ChatPanel.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "testing"
+        -comment: "Need to test empty state, chat input field, and Send button"
+
+  - task: "Code Editor functionality"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/editor/EditorPanel.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "testing"
+        -comment: "Need to test Monaco editor loading, file tabs switching, New and Delete buttons"
+
+  - task: "Preview Panel functionality"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/preview/PreviewPanel.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "testing"
+        -comment: "Need to test iframe preview showing Hello World, Refresh and Open buttons, Live badge"
+
+  - task: "Settings Dialog functionality"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/settings/SettingsDialog.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "testing"
+        -comment: "Need to test dialog opening, 3 tabs (API Key, Models, Integrations), form fields and functionality"
+
+  - task: "Project Dialog functionality"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/project/ProjectDialog.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "testing"
+        -comment: "Need to test dialog opening, Save/Load tabs, project name input and Save button"
+
+  - task: "File Management functionality"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/editor/FileTree.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "testing"
+        -comment: "Need to test New button, Create New File dialog, filename input functionality"
+
+  - task: "Mode Toggle functionality"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/layout/Header.jsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "testing"
+        -comment: "Need to test Chat/Code mode toggle buttons and active state highlighting"
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 1
+
+test_plan:
+  current_focus:
+    - "UI Layout - 3-panel layout verification"
+    - "Header component functionality"
+    - "Chat Panel functionality"
+    - "Code Editor functionality"
+    - "Preview Panel functionality"
+    - "Settings Dialog functionality"
+    - "Project Dialog functionality"
+    - "File Management functionality"
+    - "Mode Toggle functionality"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "testing"
+    -message: "Starting comprehensive UI testing of CodeAgent application. Will test all major components and functionality as specified in review request."
