@@ -167,17 +167,32 @@ Be concise (3-5 sentences). You will discuss this with {self.agent2_name} next.
 """
         
         messages = [{"role": "user", "content": architect_prompt}]
-        architect_response = await self.openrouter_caller(
-            model=self.agent1_model,
-            messages=messages,
-            api_key=self.api_key
-        )
         
-        self.add_consensus_message(
-            self.agent1_name,
-            architect_response['content'],
-            'proposal'
-        )
+        try:
+            architect_response = await asyncio.wait_for(
+                self.openrouter_caller(
+                    model=self.agent1_model,
+                    messages=messages,
+                    api_key=self.api_key
+                ),
+                timeout=60.0  # 60 second timeout
+            )
+            
+            self.add_consensus_message(
+                self.agent1_name,
+                architect_response['content'],
+                'proposal'
+            )
+        except asyncio.TimeoutError:
+            error_msg = f"⏱️ {self.agent1_name} timed out. Model might be unavailable or slow."
+            self.add_consensus_message('System', error_msg, 'error')
+            logger.error(error_msg)
+            return None
+        except Exception as e:
+            error_msg = f"❌ {self.agent1_name} error: {str(e)}"
+            self.add_consensus_message('System', error_msg, 'error')
+            logger.error(error_msg)
+            return None
         
         # Round 2: Reviewer responds
         self.add_consensus_message(
