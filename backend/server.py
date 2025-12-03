@@ -84,8 +84,8 @@ async def call_openrouter_model(
     }
     
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
+        async with httpx.AsyncClient(timeout=120.0) as http_client:
+            response = await http_client.post(
                 OPENROUTER_API_URL,
                 headers=headers,
                 json=payload
@@ -172,22 +172,19 @@ async def chat(request: ChatRequest):
 @api_router.get("/models")
 async def get_models(x_api_key: str = None):
     """
-    Get list of available models from OpenRouter
+    Proxy request to OpenRouter to get list of available models.
+    This allows frontend to fetch models with CORS support.
     """
     if not x_api_key:
-        # Return popular models without API call
+        # Return basic info without API call
         return {
-            "models": [
-                {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet"},
-                {"id": "openai/gpt-4-turbo", "name": "GPT-4 Turbo"},
-                {"id": "openai/gpt-4o", "name": "GPT-4o"},
-                {"id": "google/gemini-pro-1.5", "name": "Gemini Pro 1.5"},
-            ]
+            "data": [],
+            "message": "API key required to fetch models"
         }
     
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            response = await http_client.get(
                 "https://openrouter.ai/api/v1/models",
                 headers={"Authorization": f"Bearer {x_api_key}"}
             )
