@@ -1,10 +1,7 @@
 import React from 'react';
 import { FileTree } from './FileTree';
 import { CodeEditor } from './CodeEditor';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { useApp } from '../../contexts/AppContext';
-import { X } from 'lucide-react';
-import { Button } from '../ui/button';
 
 export const EditorPanel = () => {
   const { files, activeFile, setActiveFile } = useApp();
@@ -13,8 +10,8 @@ export const EditorPanel = () => {
   return (
     <div className="h-full flex flex-col bg-card/30">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-border bg-card/50 backdrop-blur-sm">
-        <h2 className="text-sm font-display font-semibold text-foreground">Code Editor</h2>
+      <div className="flex items-center justify-between p-2 md:p-3 border-b border-border bg-card/50 backdrop-blur-sm">
+        <h2 className="text-sm md:text-sm font-display font-semibold text-foreground">Code Editor</h2>
         <FileTree />
       </div>
       
@@ -25,7 +22,7 @@ export const EditorPanel = () => {
             key={filename}
             onClick={() => setActiveFile(filename)}
             className={`
-              px-3 py-1.5 text-xs font-mono rounded-md
+              px-2 md:px-3 py-1 md:py-1.5 text-xs font-mono rounded-md
               transition-colors flex items-center gap-2 whitespace-nowrap
               ${
                 activeFile === filename

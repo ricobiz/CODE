@@ -1,10 +1,20 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { useApp } from '../../contexts/AppContext';
 
 export const CodeEditor = () => {
   const { files, activeFile, updateFile } = useApp();
   const editorRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   const getLanguage = (filename) => {
     const ext = filename.split('.').pop();
@@ -41,8 +51,8 @@ export const CodeEditor = () => {
       onMount={handleEditorMount}
       theme="vs-dark"
       options={{
-        minimap: { enabled: false },
-        fontSize: 14,
+        minimap: { enabled: !isMobile },
+        fontSize: isMobile ? 12 : 14,
         fontFamily: 'JetBrains Mono, monospace',
         lineNumbers: 'on',
         roundedSelection: true,
@@ -50,10 +60,25 @@ export const CodeEditor = () => {
         automaticLayout: true,
         tabSize: 2,
         wordWrap: 'on',
-        padding: { top: 16 },
+        padding: { top: isMobile ? 8 : 16 },
         smoothScrolling: true,
         cursorBlinking: 'smooth',
         cursorSmoothCaretAnimation: 'on',
+        // Mobile optimizations
+        quickSuggestions: !isMobile,
+        parameterHints: { enabled: !isMobile },
+        suggestOnTriggerCharacters: !isMobile,
+        acceptSuggestionOnEnter: isMobile ? 'off' : 'on',
+        tabCompletion: isMobile ? 'off' : 'on',
+        wordBasedSuggestions: isMobile ? 'off' : 'matchingDocuments',
+        // Better touch scrolling
+        scrollbar: {
+          vertical: 'visible',
+          horizontal: 'visible',
+          useShadows: false,
+          verticalScrollbarSize: isMobile ? 8 : 10,
+          horizontalScrollbarSize: isMobile ? 8 : 10,
+        },
       }}
     />
   );
