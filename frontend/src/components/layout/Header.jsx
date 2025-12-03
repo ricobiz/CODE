@@ -1,45 +1,39 @@
 import React, { useState } from 'react';
-import { Settings, Save, FolderOpen, Code2, Sparkles, Menu } from 'lucide-react';
+import { Settings, FolderOpen, Code2, Sparkles, Menu, Zap } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useApp } from '../../contexts/AppContext';
+import { useConsensus } from '../../contexts/ConsensusContext';
 import { SettingsDialog } from '../settings/SettingsDialog';
 import { ProjectDialog } from '../project/ProjectDialog';
 import { Badge } from '../ui/badge';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '../ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
 
 export const Header = () => {
   const { currentProject, selectedModels, chatMode, setChatMode } = useApp();
+  const { isConsensusMode, setIsConsensusMode } = useConsensus();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   return (
     <>
-      <header className="h-16 border-b border-border bg-card/50 backdrop-blur-md flex items-center justify-between px-4 md:px-6 sticky top-0 z-50">
+      <header className="h-16 border-b neon-border bg-card/30 backdrop-blur-xl flex items-center justify-between px-4 md:px-6 sticky top-0 z-50">
         <div className="flex items-center gap-3 md:gap-6 flex-1 min-w-0">
-          {/* Logo */}
+          {/* Logo with neon effect */}
           <div className="flex items-center gap-2 md:gap-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center glow-primary flex-shrink-0">
-              <Code2 className="w-5 h-5 md:w-6 md:h-6 text-primary-foreground" />
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center glow-cyan flex-shrink-0 pulse-neon">
+              <Code2 className="w-5 h-5 md:w-6 md:h-6 text-background" />
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-lg md:text-xl font-display font-bold text-foreground">
+              <h1 className="text-lg md:text-xl font-display font-bold bg-gradient-to-r from-neon-cyan to-neon-purple bg-clip-text text-transparent">
                 CodeAgent
               </h1>
-              <p className="text-xs text-muted-foreground hidden md:block">Multi-Model AI Coding</p>
+              <p className="text-xs text-muted-foreground hidden md:block">AI Multi-Agent Platform</p>
             </div>
           </div>
           
-          {/* Project name - hidden on small screens */}
           {currentProject && (
-            <Badge variant="outline" className="text-xs hidden md:inline-flex">
+            <Badge variant="outline" className="text-xs hidden md:inline-flex border-neon-cyan/30 text-neon-cyan">
               {currentProject}
             </Badge>
           )}
@@ -47,32 +41,22 @@ export const Header = () => {
         
         {/* Desktop actions */}
         <div className="hidden md:flex items-center gap-3">
-          {/* Chat Mode Toggle */}
-          <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-            <Button
-              size="sm"
-              variant={chatMode === 'chat' ? 'default' : 'ghost'}
-              onClick={() => setChatMode('chat')}
-              className="text-xs"
-            >
-              <Sparkles className="w-4 h-4 mr-1" />
-              Chat
-            </Button>
-            <Button
-              size="sm"
-              variant={chatMode === 'code' ? 'default' : 'ghost'}
-              onClick={() => setChatMode('code')}
-              className="text-xs"
-            >
-              <Code2 className="w-4 h-4 mr-1" />
-              Code
-            </Button>
-          </div>
+          {/* Consensus Mode Toggle */}
+          <Button
+            variant={isConsensusMode ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setIsConsensusMode(!isConsensusMode)}
+            className={`gap-2 ${isConsensusMode ? 'glow-purple' : ''}`}
+          >
+            <Zap className="w-4 h-4" />
+            Consensus
+          </Button>
           
           {/* Active models indicator */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/30 border neon-border">
+            <Sparkles className="w-3.5 h-3.5 text-neon-cyan" />
             <span className="text-xs text-muted-foreground">Models:</span>
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-xs bg-neon-cyan/20 text-neon-cyan border-0">
               {selectedModels.length}
             </Badge>
           </div>
@@ -82,6 +66,7 @@ export const Header = () => {
             variant="outline"
             size="sm"
             onClick={() => setProjectOpen(true)}
+            className="border-neon-cyan/30 hover:border-neon-cyan"
           >
             <FolderOpen className="w-4 h-4 mr-2" />
             Project
@@ -91,6 +76,7 @@ export const Header = () => {
             variant="outline"
             size="sm"
             onClick={() => setSettingsOpen(true)}
+            className="border-neon-purple/30 hover:border-neon-purple"
           >
             <Settings className="w-4 h-4 mr-2" />
             Settings
@@ -104,7 +90,7 @@ export const Header = () => {
               <Menu className="w-5 h-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[300px]">
+          <SheetContent side="right" className="w-[300px] glass-neon border-l neon-border-purple">
             <SheetHeader>
               <SheetTitle>Menu</SheetTitle>
               <SheetDescription>
@@ -113,33 +99,23 @@ export const Header = () => {
             </SheetHeader>
             
             <div className="flex flex-col gap-3 mt-6">
-              {/* Chat Mode Toggle */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">Mode</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant={chatMode === 'chat' ? 'default' : 'outline'}
-                    onClick={() => setChatMode('chat')}
-                    className="w-full"
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Chat
-                  </Button>
-                  <Button
-                    variant={chatMode === 'code' ? 'default' : 'outline'}
-                    onClick={() => setChatMode('code')}
-                    className="w-full"
-                  >
-                    <Code2 className="w-4 h-4 mr-2" />
-                    Code
-                  </Button>
-                </div>
-              </div>
+              {/* Consensus Toggle */}
+              <Button
+                variant={isConsensusMode ? 'default' : 'outline'}
+                onClick={() => setIsConsensusMode(!isConsensusMode)}
+                className="w-full justify-start gap-2"
+              >
+                <Zap className="w-4 h-4" />
+                Consensus Mode
+                {isConsensusMode && (
+                  <Badge variant="secondary" className="ml-auto">ON</Badge>
+                )}
+              </Button>
               
               {/* Models */}
-              <div className="p-3 rounded-lg bg-muted/50">
+              <div className="p-3 rounded-lg glass-neon">
                 <span className="text-sm text-muted-foreground">Active Models:</span>
-                <Badge variant="secondary" className="ml-2">
+                <Badge variant="secondary" className="ml-2 bg-neon-cyan/20 text-neon-cyan">
                   {selectedModels.length}
                 </Badge>
               </div>

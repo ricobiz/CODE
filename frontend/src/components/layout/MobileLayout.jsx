@@ -1,43 +1,64 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ChatPanel } from '../chat/ChatPanel';
-import { EditorPanel } from '../editor/EditorPanel';
 import { PreviewPanel } from '../preview/PreviewPanel';
-import { MessageSquare, Code2, Eye } from 'lucide-react';
+import { ConsensusRoom } from '../consensus/ConsensusRoom';
+import { ProgressPanel } from '../progress/ProgressPanel';
+import { MessageSquare, Eye, Users } from 'lucide-react';
+import { useConsensus } from '../../contexts/ConsensusContext';
 
 export const MobileLayout = () => {
-  const [activeTab, setActiveTab] = useState('chat');
+  const [activeTab, setActiveTab] = useState('preview');
+  const { isConsensusMode } = useConsensus();
   
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col bg-background">
+      {/* Progress Panel */}
+      <div className="px-3 pt-3">
+        <ProgressPanel />
+      </div>
+      
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <TabsList className="w-full grid grid-cols-3 rounded-none border-b border-border bg-card/50 h-12">
-          <TabsTrigger value="chat" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <MessageSquare className="w-4 h-4" />
-            <span className="hidden xs:inline">Chat</span>
-          </TabsTrigger>
-          <TabsTrigger value="editor" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Code2 className="w-4 h-4" />
-            <span className="hidden xs:inline">Code</span>
-          </TabsTrigger>
-          <TabsTrigger value="preview" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+        <TabsList className="w-full grid grid-cols-3 rounded-none border-b neon-border bg-card/50 h-12">
+          <TabsTrigger 
+            value="preview" 
+            className="gap-2 data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan data-[state=active]:border-b-2 data-[state=active]:border-neon-cyan"
+          >
             <Eye className="w-4 h-4" />
             <span className="hidden xs:inline">Preview</span>
           </TabsTrigger>
+          <TabsTrigger 
+            value="chat" 
+            className="gap-2 data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan data-[state=active]:border-b-2 data-[state=active]:border-neon-cyan"
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span className="hidden xs:inline">Chat</span>
+          </TabsTrigger>
+          {isConsensusMode && (
+            <TabsTrigger 
+              value="consensus" 
+              className="gap-2 data-[state=active]:bg-neon-purple/20 data-[state=active]:text-neon-purple data-[state=active]:border-b-2 data-[state=active]:border-neon-purple"
+            >
+              <Users className="w-4 h-4" />
+              <span className="hidden xs:inline">Consensus</span>
+            </TabsTrigger>
+          )}
         </TabsList>
         
         <div className="flex-1 overflow-hidden">
+          <TabsContent value="preview" className="h-full m-0 data-[state=inactive]:hidden">
+            <PreviewPanel />
+          </TabsContent>
+          
           <TabsContent value="chat" className="h-full m-0 data-[state=inactive]:hidden">
             <ChatPanel />
           </TabsContent>
           
-          <TabsContent value="editor" className="h-full m-0 data-[state=inactive]:hidden">
-            <EditorPanel />
-          </TabsContent>
-          
-          <TabsContent value="preview" className="h-full m-0 data-[state=inactive]:hidden">
-            <PreviewPanel />
-          </TabsContent>
+          {isConsensusMode && (
+            <TabsContent value="consensus" className="h-full m-0 p-3 data-[state=inactive]:hidden">
+              <ConsensusRoom />
+            </TabsContent>
+          )}
         </div>
       </Tabs>
     </div>
