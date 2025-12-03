@@ -16,7 +16,7 @@ export const AppProvider = ({ children }) => {
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('openrouter_api_key') || '');
   const [selectedModels, setSelectedModels] = useState(() => {
     const saved = localStorage.getItem('selected_models');
-    return saved ? JSON.parse(saved) : ['anthropic/claude-3.5-sonnet'];
+    return saved ? JSON.parse(saved) : ['anthropic/claude-3.5-sonnet']; // Default to Claude 3.5 Sonnet from OpenRouter
   });
   const [chatMode, setChatMode] = useState('chat'); // 'chat' or 'code'
   
