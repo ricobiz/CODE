@@ -6,7 +6,7 @@ import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Button } from '../ui/button';
-import { Search, Sparkles, Zap, Brain, RefreshCw, DollarSign } from 'lucide-react';
+import { Search, Sparkles, Zap, Brain, RefreshCw, DollarSign, Radio } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 
@@ -19,6 +19,7 @@ export const ModelSelector = () => {
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [modelStatuses, setModelStatuses] = useState({}); // {modelId: 'working'|'limited'|'unavailable'|'testing'}
   
   // Load models from OpenRouter API
   const loadModels = async () => {
@@ -44,11 +45,9 @@ export const ModelSelector = () => {
         description: model.description || '',
         pricing: model.pricing,
         context_length: model.context_length,
-        // Determine if free (pricing.prompt === "0" or very low)
         isFree: model.pricing?.prompt === "0" || parseFloat(model.pricing?.prompt || '1') === 0
       }));
       
-      // Sort: free models first, then by name
       modelData.sort((a, b) => {
         if (a.isFree && !b.isFree) return -1;
         if (!a.isFree && b.isFree) return 1;
@@ -63,14 +62,12 @@ export const ModelSelector = () => {
       setError(errorMsg);
       toast.error(errorMsg);
       
-      // Fallback to popular models if API fails
       setModels(getPopularModels());
     } finally {
       setLoading(false);
     }
   };
   
-  // Popular models as fallback
   const getPopularModels = () => [
     { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic', isFree: false },
     { id: 'anthropic/claude-3-haiku', name: 'Claude 3 Haiku', provider: 'Anthropic', isFree: false },
@@ -82,17 +79,57 @@ export const ModelSelector = () => {
     { id: 'mistralai/mistral-7b-instruct:free', name: 'Mistral 7B', provider: 'Mistral', isFree: true },
   ];
   
-  // Load models on mount if API key is present
   useEffect(() => {
     if (apiKey) {
       loadModels();
     } else {
-      // Show popular models by default
       setModels(getPopularModels());
     }
   }, [apiKey]);
   
-  // Filter models by search
+  // Ping model to check status
+  const pingModel = async (modelId) => {
+    if (!apiKey) {
+      toast.error('API key required to ping models');
+      return;
+    }
+    
+    setModelStatuses(prev => ({ ...prev, [modelId]: 'testing' }));
+    
+    try {
+      const response = await axios.post(`${API}/ping-model`, null, {
+        params: { model: modelId, api_key: apiKey }
+      });
+      
+      const status = response.data.status;
+      setModelStatuses(prev => ({ ...prev, [modelId]: status }));
+      
+      if (status === 'working') {
+        toast.success(`✅ ${modelId.split('/').pop()} is working!`);
+      } else if (status === 'limited') {
+        toast.warning(`⚠️ ${modelId.split('/').pop()} has limited availability`);
+      } else {
+        toast.error(`❌ ${modelId.split('/').pop()} is unavailable`);
+      }
+      
+    } catch (error) {
+      console.error('Ping error:', error);
+      setModelStatuses(prev => ({ ...prev, [modelId]: 'unavailable' }));
+      toast.error(`Failed to ping ${modelId}`);
+    }
+  };
+  
+  // Ping all selected models
+  const pingAllSelected = async () => {
+    if (selectedModels.length === 0) {
+      toast.error('Please select models first');
+      return;
+    }
+    
+    toast.info(`Testing ${selectedModels.length} models...`);
+    await Promise.all(selectedModels.map(modelId => pingModel(modelId)));
+  };
+  
   const filteredModels = models.filter(model => {
     const searchLower = search.toLowerCase();
     return (
@@ -121,24 +158,34 @@ export const ModelSelector = () => {
     return Brain;
   };
   
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'working': return 'bg-neon-green';
+      case 'limited': return 'bg-warning';
+      case 'unavailable': return 'bg-destructive';
+      case 'testing': return 'bg-primary animate-pulse';
+      default: return 'bg-muted';
+    }
+  };
+  
   return (
     <div className="space-y-4">
       <div className="space-y-2">
         <Label className="text-base font-semibold">Select AI Models</Label>
         <p className="text-sm text-muted-foreground">
-          Choose one or more models to work together. They'll collaborate and review each other's code.
+          Choose models to work together. Test them with Ping to check availability.
         </p>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {selectedModels.length > 0 && (
             <Badge variant="secondary" className="text-sm">
-              {selectedModels.length} model{selectedModels.length > 1 ? 's' : ''} selected
+              {selectedModels.length} selected
             </Badge>
           )}
           
           {models.length > 0 && (
             <Badge variant="outline" className="text-sm">
-              {models.length} models available
+              {models.length} available
             </Badge>
           )}
           
@@ -151,14 +198,14 @@ export const ModelSelector = () => {
         </div>
       </div>
       
-      {/* Search and Refresh */}
+      {/* Search and Actions */}
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search models by name, provider, or ID..."
+            placeholder="Search models..."
             className="pl-10"
           />
         </div>
@@ -168,14 +215,24 @@ export const ModelSelector = () => {
           size="sm"
           onClick={loadModels}
           disabled={loading || !apiKey}
-          className="gap-2"
+          className="gap-2 border-neon-cyan/30 hover:border-neon-cyan"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={pingAllSelected}
+          disabled={selectedModels.length === 0 || !apiKey}
+          className="gap-2 border-neon-green/30 hover:border-neon-green"
+        >
+          <Radio className="w-4 h-4" />
+          Ping Selected
+        </Button>
       </div>
       
-      {/* Error or no API key warning */}
       {!apiKey && (
         <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
           <p className="text-sm text-warning-foreground">
@@ -192,7 +249,6 @@ export const ModelSelector = () => {
         </div>
       )}
       
-      {/* Loading state */}
       {loading && (
         <div className="flex items-center justify-center py-8">
           <RefreshCw className="w-6 h-6 animate-spin text-primary" />
@@ -200,7 +256,6 @@ export const ModelSelector = () => {
         </div>
       )}
       
-      {/* Model list */}
       {!loading && filteredModels.length === 0 && search && (
         <div className="text-center py-8">
           <p className="text-sm text-muted-foreground">No models found matching "{search}"</p>
@@ -212,10 +267,12 @@ export const ModelSelector = () => {
           <div className="space-y-2">
             {filteredModels.map((model) => {
               const Icon = getIcon(model.provider);
+              const status = modelStatuses[model.id];
+              
               return (
                 <div
                   key={model.id}
-                  className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
+                  className="flex items-start gap-3 p-3 rounded-lg border neon-border hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => toggleModel(model.id)}
                 >
                   <Checkbox
@@ -235,6 +292,9 @@ export const ModelSelector = () => {
                           FREE
                         </Badge>
                       )}
+                      {status && (
+                        <div className={`w-2 h-2 rounded-full ${getStatusColor(status)}`} title={status} />
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mb-1">{model.provider}</p>
                     {model.context_length && (
@@ -242,12 +302,21 @@ export const ModelSelector = () => {
                         Context: {model.context_length.toLocaleString()} tokens
                       </p>
                     )}
-                    {model.description && (
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        {model.description}
-                      </p>
-                    )}
                   </div>
+                  
+                  {selectedModels.includes(model.id) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        pingModel(model.id);
+                      }}
+                      className="flex-shrink-0"
+                    >
+                      <Radio className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
               );
             })}
@@ -255,12 +324,18 @@ export const ModelSelector = () => {
         </ScrollArea>
       )}
       
-      {/* Info */}
-      <div className="p-4 rounded-lg bg-secondary/10 border border-secondary/20">
+      <div className="p-4 rounded-lg glass-neon">
         <p className="text-xs text-muted-foreground leading-relaxed">
-          <strong className="text-foreground">Multi-Model Collaboration:</strong> When you select 
-          multiple models, they work together on your requests, reviewing and improving each other's 
-          suggestions to deliver the best possible code. Free models are marked with a FREE badge.
+          <strong className="text-foreground">Status Indicators:</strong>
+          <span className="inline-flex items-center gap-1 ml-2">
+            <span className="w-2 h-2 rounded-full bg-neon-green" /> Working
+          </span>
+          <span className="inline-flex items-center gap-1 ml-2">
+            <span className="w-2 h-2 rounded-full bg-warning" /> Limited
+          </span>
+          <span className="inline-flex items-center gap-1 ml-2">
+            <span className="w-2 h-2 rounded-full bg-destructive" /> Unavailable
+          </span>
         </p>
       </div>
     </div>
