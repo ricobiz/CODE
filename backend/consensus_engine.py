@@ -222,17 +222,31 @@ Be concise (3-5 sentences). Be constructive.
             {"role": "user", "content": reviewer_prompt}
         ]
         
-        reviewer_response = await self.openrouter_caller(
-            model=self.agent2_model,
-            messages=messages,
-            api_key=self.api_key
-        )
-        
-        self.add_consensus_message(
-            self.agent2_name,
-            reviewer_response['content'],
-            'review'
-        )
+        try:
+            reviewer_response = await asyncio.wait_for(
+                self.openrouter_caller(
+                    model=self.agent2_model,
+                    messages=messages,
+                    api_key=self.api_key
+                ),
+                timeout=60.0
+            )
+            
+            self.add_consensus_message(
+                self.agent2_name,
+                reviewer_response['content'],
+                'review'
+            )
+        except asyncio.TimeoutError:
+            error_msg = f"⏱️ {self.agent2_name} timed out."
+            self.add_consensus_message('System', error_msg, 'error')
+            logger.error(error_msg)
+            return None
+        except Exception as e:
+            error_msg = f"❌ {self.agent2_name} error: {str(e)}"
+            self.add_consensus_message('System', error_msg, 'error')
+            logger.error(error_msg)
+            return None
         
         # Round 3: Create detailed plan
         self.add_consensus_message(
