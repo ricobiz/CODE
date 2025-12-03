@@ -6,9 +6,10 @@ import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Button } from '../ui/button';
-import { Search, Sparkles, Zap, Brain, RefreshCw, DollarSign, Radio } from 'lucide-react';
+import { Search, Sparkles, Zap, Brain, RefreshCw, DollarSign, Radio, CheckCircle2, Circle } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
+import { cn } from '../../lib/utils';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -19,9 +20,9 @@ export const ModelSelector = () => {
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [modelStatuses, setModelStatuses] = useState({}); // {modelId: 'working'|'limited'|'unavailable'|'testing'}
+  const [modelStatuses, setModelStatuses] = useState({});
+  const [showOnlySelected, setShowOnlySelected] = useState(false);
   
-  // Load models from OpenRouter API
   const loadModels = async () => {
     if (!apiKey) {
       toast.error('Please set your OpenRouter API key first');
@@ -33,9 +34,7 @@ export const ModelSelector = () => {
     
     try {
       const response = await axios.get('https://openrouter.ai/api/v1/models', {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`
-        }
+        headers: { 'Authorization': `Bearer ${apiKey}` }
       });
       
       const modelData = response.data.data.map(model => ({
@@ -48,20 +47,13 @@ export const ModelSelector = () => {
         isFree: model.pricing?.prompt === "0" || parseFloat(model.pricing?.prompt || '1') === 0
       }));
       
-      modelData.sort((a, b) => {
-        if (a.isFree && !b.isFree) return -1;
-        if (!a.isFree && b.isFree) return 1;
-        return a.name.localeCompare(b.name);
-      });
-      
       setModels(modelData);
-      toast.success(`Loaded ${modelData.length} models from OpenRouter`);
+      toast.success(`Loaded ${modelData.length} models`);
     } catch (err) {
       console.error('Error loading models:', err);
       const errorMsg = err.response?.data?.error?.message || 'Failed to load models';
       setError(errorMsg);
       toast.error(errorMsg);
-      
       setModels(getPopularModels());
     } finally {
       setLoading(false);
@@ -87,10 +79,9 @@ export const ModelSelector = () => {
     }
   }, [apiKey]);
   
-  // Ping model to check status
   const pingModel = async (modelId) => {
     if (!apiKey) {
-      toast.error('API key required to ping models');
+      toast.error('API key required');
       return;
     }
     
@@ -105,13 +96,12 @@ export const ModelSelector = () => {
       setModelStatuses(prev => ({ ...prev, [modelId]: status }));
       
       if (status === 'working') {
-        toast.success(`✅ ${modelId.split('/').pop()} is working!`);
+        toast.success(`✅ ${modelId.split('/').pop()} working!`);
       } else if (status === 'limited') {
-        toast.warning(`⚠️ ${modelId.split('/').pop()} has limited availability`);
+        toast.warning(`⚠️ ${modelId.split('/').pop()} limited`);
       } else {
-        toast.error(`❌ ${modelId.split('/').pop()} is unavailable`);
+        toast.error(`❌ ${modelId.split('/').pop()} unavailable`);
       }
-      
     } catch (error) {
       console.error('Ping error:', error);
       setModelStatuses(prev => ({ ...prev, [modelId]: 'unavailable' }));
@@ -119,7 +109,6 @@ export const ModelSelector = () => {
     }
   };
   
-  // Ping all selected models
   const pingAllSelected = async () => {
     if (selectedModels.length === 0) {
       toast.error('Please select models first');
@@ -130,14 +119,42 @@ export const ModelSelector = () => {
     await Promise.all(selectedModels.map(modelId => pingModel(modelId)));
   };
   
-  const filteredModels = models.filter(model => {
-    const searchLower = search.toLowerCase();
-    return (
-      model.name.toLowerCase().includes(searchLower) ||
-      model.provider.toLowerCase().includes(searchLower) ||
-      model.id.toLowerCase().includes(searchLower)
-    );
-  });
+  // Filter and sort models
+  const getFilteredAndSortedModels = () => {
+    let filtered = models;
+    
+    // Apply search filter
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(model =>
+        model.name.toLowerCase().includes(searchLower) ||
+        model.provider.toLowerCase().includes(searchLower) ||
+        model.id.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Apply "only selected" filter
+    if (showOnlySelected) {
+      filtered = filtered.filter(model => selectedModels.includes(model.id));
+    }
+    
+    // Sort: selected first, then by name
+    return filtered.sort((a, b) => {
+      const aSelected = selectedModels.includes(a.id);
+      const bSelected = selectedModels.includes(b.id);
+      
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+      
+      // If both selected or both not selected, sort by free then name
+      if (a.isFree && !b.isFree) return -1;
+      if (!a.isFree && b.isFree) return 1;
+      
+      return a.name.localeCompare(b.name);
+    });
+  };
+  
+  const filteredModels = getFilteredAndSortedModels();
   
   const toggleModel = (modelId) => {
     setSelectedModels(prev => {
@@ -173,12 +190,12 @@ export const ModelSelector = () => {
       <div className="space-y-2">
         <Label className="text-base font-semibold">Select AI Models</Label>
         <p className="text-sm text-muted-foreground">
-          Choose models to work together. Test them with Ping to check availability.
+          Choose models to work together. Selected models appear at the top.
         </p>
         
         <div className="flex items-center gap-2 flex-wrap">
           {selectedModels.length > 0 && (
-            <Badge variant="secondary" className="text-sm">
+            <Badge variant="secondary" className="text-sm bg-neon-cyan/20 text-neon-cyan border-neon-cyan/30">
               {selectedModels.length} selected
             </Badge>
           )}
@@ -218,7 +235,7 @@ export const ModelSelector = () => {
           className="gap-2 border-neon-cyan/30 hover:border-neon-cyan"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
+          <span className="hidden sm:inline">Refresh</span>
         </Button>
         
         <Button
@@ -229,7 +246,20 @@ export const ModelSelector = () => {
           className="gap-2 border-neon-green/30 hover:border-neon-green"
         >
           <Radio className="w-4 h-4" />
-          Ping Selected
+          <span className="hidden sm:inline">Ping</span>
+        </Button>
+      </div>
+      
+      {/* Quick filter */}
+      <div className="flex gap-2">
+        <Button
+          variant={showOnlySelected ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setShowOnlySelected(!showOnlySelected)}
+          disabled={selectedModels.length === 0}
+          className="text-xs"
+        >
+          {showOnlySelected ? 'Show All' : 'Only Selected'}
         </Button>
       </div>
       
@@ -252,13 +282,13 @@ export const ModelSelector = () => {
       {loading && (
         <div className="flex items-center justify-center py-8">
           <RefreshCw className="w-6 h-6 animate-spin text-primary" />
-          <span className="ml-2 text-sm text-muted-foreground">Loading models...</span>
+          <span className="ml-2 text-sm text-muted-foreground">Loading...</span>
         </div>
       )}
       
       {!loading && filteredModels.length === 0 && search && (
         <div className="text-center py-8">
-          <p className="text-sm text-muted-foreground">No models found matching "{search}"</p>
+          <p className="text-sm text-muted-foreground">No models found</p>
         </div>
       )}
       
@@ -268,23 +298,34 @@ export const ModelSelector = () => {
             {filteredModels.map((model) => {
               const Icon = getIcon(model.provider);
               const status = modelStatuses[model.id];
+              const isSelected = selectedModels.includes(model.id);
               
               return (
                 <div
                   key={model.id}
-                  className="flex items-start gap-3 p-3 rounded-lg border neon-border hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => toggleModel(model.id)}
+                  className={cn(
+                    "flex items-center gap-4 p-4 rounded-lg border transition-all cursor-pointer",
+                    "hover:scale-[1.02] hover:shadow-lg",
+                    isSelected
+                      ? "neon-border bg-primary/5 border-primary/50 shadow-neon-cyan"
+                      : "border-border hover:bg-muted/50"
+                  )}
                 >
-                  <Checkbox
-                    checked={selectedModels.includes(model.id)}
-                    onCheckedChange={() => toggleModel(model.id)}
-                    className="mt-1"
-                  />
+                  {/* Large clickable checkbox area */}
+                  <div className="flex items-center justify-center w-6 h-6 flex-shrink-0">
+                    {isSelected ? (
+                      <CheckCircle2 className="w-6 h-6 text-neon-cyan" />
+                    ) : (
+                      <Circle className="w-6 h-6 text-muted-foreground" />
+                    )}
+                  </div>
                   
+                  {/* Model info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <Icon className="w-4 h-4 text-primary flex-shrink-0" />
-                      <Label className="font-semibold cursor-pointer break-words">
+                      <Label className="font-semibold cursor-pointer text-base">
                         {model.name}
                       </Label>
                       {model.isFree && (
@@ -293,18 +334,19 @@ export const ModelSelector = () => {
                         </Badge>
                       )}
                       {status && (
-                        <div className={`w-2 h-2 rounded-full ${getStatusColor(status)}`} title={status} />
+                        <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(status)}`} title={status} />
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mb-1">{model.provider}</p>
+                    <p className="text-xs text-muted-foreground">{model.provider}</p>
                     {model.context_length && (
-                      <p className="text-xs text-muted-foreground">
-                        Context: {model.context_length.toLocaleString()} tokens
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {model.context_length.toLocaleString()} tokens
                       </p>
                     )}
                   </div>
                   
-                  {selectedModels.includes(model.id) && (
+                  {/* Ping button */}
+                  {isSelected && (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -312,7 +354,7 @@ export const ModelSelector = () => {
                         e.stopPropagation();
                         pingModel(model.id);
                       }}
-                      className="flex-shrink-0"
+                      className="flex-shrink-0 hover:bg-neon-green/10 hover:text-neon-green"
                     >
                       <Radio className="w-4 h-4" />
                     </Button>
@@ -326,7 +368,7 @@ export const ModelSelector = () => {
       
       <div className="p-4 rounded-lg glass-neon">
         <p className="text-xs text-muted-foreground leading-relaxed">
-          <strong className="text-foreground">Status Indicators:</strong>
+          <strong className="text-foreground">Status:</strong>
           <span className="inline-flex items-center gap-1 ml-2">
             <span className="w-2 h-2 rounded-full bg-neon-green" /> Working
           </span>
