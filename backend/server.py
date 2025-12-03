@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -12,6 +12,9 @@ import uuid
 from datetime import datetime, timezone
 import httpx
 import json
+import asyncio
+
+from consensus_engine import ConsensusEngine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -32,6 +35,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Store active consensus sessions
+active_sessions = {}
+
 # ===== Models =====
 
 class Message(BaseModel):
@@ -43,6 +49,7 @@ class ChatRequest(BaseModel):
     models: List[str]
     api_key: str
     conversation_history: Optional[List[Message]] = []
+    consensus_mode: Optional[bool] = False
 
 class ModelResponse(BaseModel):
     model: str
@@ -51,6 +58,7 @@ class ModelResponse(BaseModel):
 
 class ChatResponse(BaseModel):
     responses: List[ModelResponse]
+    consensus_data: Optional[Dict[str, Any]] = None
 
 class Project(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -66,7 +74,8 @@ OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 async def call_openrouter_model(
     model: str,
     messages: List[Dict[str, str]],
-    api_key: str
+    api_key: str,
+    max_tokens: int = 4000
 ) -> Dict[str, Any]:
     """
     Call a single model via OpenRouter API
@@ -80,11 +89,12 @@ async def call_openrouter_model(
     
     payload = {
         "model": model,
-        "messages": messages
+        "messages": messages,
+        "max_tokens": max_tokens
     }
     
     try:
-        async with httpx.AsyncClient(timeout=120.0) as http_client:
+        async with httpx.AsyncClient(timeout=180.0) as http_client:
             response = await http_client.post(
                 OPENROUTER_API_URL,
                 headers=headers,
@@ -121,10 +131,10 @@ async def root():
     return {"message": "CodeAgent API - Multi-Model AI Coding Platform"}
 
 @api_router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     """
-    Send a message to multiple AI models and get their responses.
-    Models collaborate by seeing each other's responses in subsequent calls.
+    Send a message to multiple AI models.
+    If consensus_mode=True, runs full consensus flow in background.
     """
     if not request.api_key:
         raise HTTPException(status_code=400, detail="API key is required")
@@ -132,14 +142,53 @@ async def chat(request: ChatRequest):
     if not request.models:
         raise HTTPException(status_code=400, detail="At least one model must be selected")
     
-    # Prepare conversation history
+    # Consensus mode - full multi-phase flow
+    if request.consensus_mode and len(request.models) >= 2:
+        session_id = str(uuid.uuid4())
+        
+        # Create consensus engine
+        engine = ConsensusEngine(
+            models=request.models,
+            api_key=request.api_key,
+            openrouter_caller=call_openrouter_model
+        )
+        
+        # Store session
+        active_sessions[session_id] = {
+            'engine': engine,
+            'status': 'running',
+            'started_at': datetime.utcnow()
+        }
+        
+        # Run consensus flow in background
+        background_tasks.add_task(
+            run_consensus_background,
+            session_id,
+            engine,
+            request.message,
+            [msg.dict() for msg in request.conversation_history]
+        )
+        
+        return ChatResponse(
+            responses=[ModelResponse(
+                model="system",
+                content="🚀 Consensus mode activated! Agents are discussing and planning...",
+                metadata={"session_id": session_id}
+            )],
+            consensus_data={
+                "session_id": session_id,
+                "mode": "consensus",
+                "phase": "planning"
+            }
+        )
+    
+    # Regular mode - sequential responses
     messages = [
         {"role": msg.role, "content": msg.content}
         for msg in request.conversation_history
     ]
     messages.append({"role": "user", "content": request.message})
     
-    # Call all selected models
     responses = []
     
     for model in request.models:
@@ -151,8 +200,7 @@ async def chat(request: ChatRequest):
             )
             responses.append(ModelResponse(**result))
             
-            # For multi-model collaboration, add this model's response to context
-            # for the next model to see
+            # Add response to context for next model
             if len(request.models) > 1:
                 messages.append({
                     "role": "assistant",
@@ -160,7 +208,6 @@ async def chat(request: ChatRequest):
                 })
         except Exception as e:
             logger.error(f"Failed to get response from {model}: {str(e)}")
-            # Continue with other models even if one fails
             responses.append(ModelResponse(
                 model=model,
                 content=f"Error: Failed to get response from {model}",
@@ -169,14 +216,53 @@ async def chat(request: ChatRequest):
     
     return ChatResponse(responses=responses)
 
+async def run_consensus_background(session_id: str, engine: ConsensusEngine, task: str, history: List[Dict]):
+    """
+    Run consensus flow in background.
+    """
+    try:
+        result = await engine.run_consensus_flow(task, history)
+        
+        # Update session
+        active_sessions[session_id]['status'] = 'completed'
+        active_sessions[session_id]['result'] = result
+        active_sessions[session_id]['completed_at'] = datetime.utcnow()
+        
+        logger.info(f"Consensus session {session_id} completed")
+        
+    except Exception as e:
+        logger.error(f"Consensus session {session_id} failed: {str(e)}")
+        active_sessions[session_id]['status'] = 'failed'
+        active_sessions[session_id]['error'] = str(e)
+
+@api_router.get("/consensus/{session_id}")
+async def get_consensus_status(session_id: str):
+    """
+    Get status of consensus session.
+    """
+    if session_id not in active_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = active_sessions[session_id]
+    engine = session['engine']
+    
+    return {
+        'session_id': session_id,
+        'status': session['status'],
+        'phase': engine.current_phase,
+        'consensus_messages': engine.consensus_messages,
+        'plan': engine.project_plan,
+        'files': engine.files_generated,
+        'started_at': session['started_at'].isoformat(),
+        'completed_at': session.get('completed_at', '').isoformat() if session.get('completed_at') else None
+    }
+
 @api_router.get("/models")
 async def get_models(x_api_key: str = None):
     """
     Proxy request to OpenRouter to get list of available models.
-    This allows frontend to fetch models with CORS support.
     """
     if not x_api_key:
-        # Return basic info without API call
         return {
             "data": [],
             "message": "API key required to fetch models"
@@ -203,7 +289,6 @@ async def save_project(project: Project):
         doc = project.model_dump()
         doc['timestamp'] = doc['timestamp'].isoformat()
         
-        # Upsert: update if exists, insert if not
         await db.projects.update_one(
             {"name": project.name},
             {"$set": doc},
@@ -223,7 +308,6 @@ async def get_projects():
     try:
         projects = await db.projects.find({}, {"_id": 0}).to_list(1000)
         
-        # Convert ISO string timestamps back to datetime objects
         for project in projects:
             if isinstance(project.get('timestamp'), str):
                 project['timestamp'] = datetime.fromisoformat(project['timestamp'])
@@ -232,17 +316,6 @@ async def get_projects():
     except Exception as e:
         logger.error(f"Error fetching projects: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching projects: {str(e)}")
-
-@api_router.post("/execute")
-async def execute_code(code: str, language: str):
-    """
-    Execute code (placeholder for future implementation)
-    """
-    return {
-        "status": "success",
-        "message": "Code execution not yet implemented",
-        "output": ""
-    }
 
 # Include the router in the main app
 app.include_router(api_router)
