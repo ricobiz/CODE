@@ -17,98 +17,70 @@ code {
 
 @layer base {
     :root {
-        /* Base Colors - Dark Theme */
-        --background: 222 47% 11%;          /* Deep navy blue #0a0e1e */
-        --foreground: 210 40% 98%;          /* Soft white #f8fafc */
+        /* Ultra Dark Theme with Neon Accents */
+        --background: 240 10% 6%;           /* Almost black #0d0e12 */
+        --foreground: 240 10% 95%;          /* Soft white #eff0f3 */
         
-        /* Card & Surface */
-        --card: 222 47% 15%;                /* Slightly lighter navy #141826 */
-        --card-foreground: 210 40% 98%;
-        --popover: 222 47% 13%;             /* #0f1320 */
-        --popover-foreground: 210 40% 98%;
+        /* Card & Surface - Very dark */
+        --card: 240 10% 8%;                 /* #121318 */
+        --card-foreground: 240 10% 95%;
+        --popover: 240 10% 7%;              /* #0f1014 */
+        --popover-foreground: 240 10% 95%;
         
-        /* Primary - Blue */
-        --primary: 217 91% 60%;             /* Bright blue #3b82f6 */
-        --primary-foreground: 0 0% 100%;
-        --primary-glow: 217 91% 70%;        /* Lighter blue for glow */
+        /* Primary - Cyan Neon */
+        --primary: 189 94% 43%;             /* Cyan neon #06b6d4 */
+        --primary-foreground: 240 10% 6%;
+        --primary-glow: 189 94% 53%;        /* Brighter cyan */
         
-        /* Secondary - Purple */
-        --secondary: 258 90% 66%;           /* Purple #8b5cf6 */
-        --secondary-foreground: 0 0% 100%;
-        --secondary-glow: 258 90% 76%;      /* Lighter purple */
+        /* Secondary - Purple Neon */
+        --secondary: 271 91% 65%;           /* Purple neon #a855f7 */
+        --secondary-foreground: 240 10% 6%;
+        --secondary-glow: 271 91% 75%;      /* Brighter purple */
         
-        /* Accent - Cyan */
-        --accent: 189 94% 43%;              /* Cyan #06b6d4 */
-        --accent-foreground: 0 0% 100%;
+        /* Accent - Pink Neon */
+        --accent: 330 81% 60%;              /* Pink neon #ec4899 */
+        --accent-foreground: 240 10% 6%;
         
-        /* Muted */
-        --muted: 217 33% 17%;               /* Muted blue-gray #1e293b */
-        --muted-foreground: 215 20% 65%;    /* Light gray #94a3b8 */
+        /* Muted - Dark gray */
+        --muted: 240 5% 15%;                /* Dark gray #252629 */
+        --muted-foreground: 240 5% 65%;     /* Medium gray #a1a3a8 */
         
         /* Destructive */
         --destructive: 0 84% 60%;           /* Red #ef4444 */
-        --destructive-foreground: 0 0% 98%;
+        --destructive-foreground: 240 10% 95%;
         
-        /* Success */
+        /* Success - Green Neon */
         --success: 142 76% 36%;             /* Green #10b981 */
-        --success-foreground: 0 0% 98%;
+        --success-foreground: 240 10% 95%;
         
         /* Warning */
         --warning: 38 92% 50%;              /* Orange #f59e0b */
-        --warning-foreground: 0 0% 98%;
+        --warning-foreground: 240 10% 95%;
         
-        /* Border & Input */
-        --border: 217 33% 20%;              /* Border color #252f3f */
-        --input: 217 33% 20%;
-        --ring: 217 91% 60%;                /* Focus ring matches primary */
+        /* Border & Input - Subtle with neon hint */
+        --border: 240 10% 12%;              /* Very dark border #1a1b20 */
+        --input: 240 10% 12%;
+        --ring: 189 94% 43%;                /* Cyan neon ring */
         
-        /* Gradients */
-        --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(258 90% 66%));
-        --gradient-glow: linear-gradient(135deg, hsl(217 91% 70% / 0.3), hsl(258 90% 76% / 0.3));
-        --gradient-surface: linear-gradient(180deg, hsl(222 47% 13%), hsl(222 47% 11%));
+        /* Neon glow colors */
+        --neon-cyan: 189 94% 43%;
+        --neon-purple: 271 91% 65%;
+        --neon-pink: 330 81% 60%;
+        --neon-green: 142 76% 36%;
         
-        /* Shadows */
-        --shadow-sm: 0 1px 2px 0 hsl(222 47% 5% / 0.3);
-        --shadow-md: 0 4px 6px -1px hsl(222 47% 5% / 0.4), 0 2px 4px -1px hsl(222 47% 5% / 0.3);
-        --shadow-lg: 0 10px 15px -3px hsl(222 47% 5% / 0.4), 0 4px 6px -2px hsl(222 47% 5% / 0.3);
-        --shadow-glow: 0 0 20px hsl(217 91% 60% / 0.3), 0 0 40px hsl(217 91% 60% / 0.1);
-        --shadow-glow-purple: 0 0 20px hsl(258 90% 66% / 0.3), 0 0 40px hsl(258 90% 66% / 0.1);
-        
-        /* Animations */
-        --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        --transition-bounce: 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        /* Shadows with neon glow */
+        --shadow-neon-cyan: 0 0 10px hsl(189 94% 43% / 0.3), 0 0 20px hsl(189 94% 43% / 0.2), 0 0 30px hsl(189 94% 43% / 0.1);
+        --shadow-neon-purple: 0 0 10px hsl(271 91% 65% / 0.3), 0 0 20px hsl(271 91% 65% / 0.2), 0 0 30px hsl(271 91% 65% / 0.1);
+        --shadow-neon-pink: 0 0 10px hsl(330 81% 60% / 0.3), 0 0 20px hsl(330 81% 60% / 0.2), 0 0 30px hsl(330 81% 60% / 0.1);
+        --shadow-neon-green: 0 0 10px hsl(142 76% 36% / 0.3), 0 0 20px hsl(142 76% 36% / 0.2), 0 0 30px hsl(142 76% 36% / 0.1);
         
         --radius: 0.75rem;
         
-        /* Chart colors */
-        --chart-1: 217 91% 60%;
-        --chart-2: 258 90% 66%;
-        --chart-3: 189 94% 43%;
+        --chart-1: 189 94% 43%;
+        --chart-2: 271 91% 65%;
+        --chart-3: 330 81% 60%;
         --chart-4: 142 76% 36%;
         --chart-5: 38 92% 50%;
-    }
-    
-    /* Light mode (optional) */
-    .light {
-        --background: 0 0% 100%;
-        --foreground: 222 47% 11%;
-        --card: 0 0% 100%;
-        --card-foreground: 222 47% 11%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 222 47% 11%;
-        --primary: 217 91% 60%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 258 90% 66%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 210 40% 96%;
-        --muted-foreground: 215 16% 47%;
-        --accent: 189 94% 43%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 84% 60%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 214 32% 91%;
-        --input: 214 32% 91%;
-        --ring: 217 91% 60%;
     }
 }
 
@@ -119,7 +91,6 @@ code {
     body {
         @apply bg-background text-foreground;
         font-feature-settings: 'rlig' 1, 'calt' 1;
-        /* Prevent text size adjustment on mobile */
         -webkit-text-size-adjust: 100%;
         -moz-text-size-adjust: 100%;
         -ms-text-size-adjust: 100%;
@@ -129,59 +100,112 @@ code {
         font-family: 'Space Grotesk', sans-serif;
     }
     
-    /* Mobile touch improvements */\n    @media (max-width: 768px) {
+    @media (max-width: 768px) {
         * {
             -webkit-tap-highlight-color: transparent;
         }
         
         input, textarea, button {
-            font-size: 16px; /* Prevent zoom on focus */
+            font-size: 16px;
         }
     }
 }
 
-/* Custom scrollbar */
+/* Neon border effects */
 @layer components {
+    /* Custom scrollbar */
     .custom-scrollbar::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
     }
     
     .custom-scrollbar::-webkit-scrollbar-track {
-        @apply bg-muted/30;
+        @apply bg-card;
         border-radius: 4px;
     }
     
     .custom-scrollbar::-webkit-scrollbar-thumb {
-        @apply bg-muted;
+        background: linear-gradient(180deg, hsl(var(--primary)), hsl(var(--secondary)));
         border-radius: 4px;
     }
     
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        @apply bg-muted-foreground/50;
+        background: linear-gradient(180deg, hsl(var(--primary-glow)), hsl(var(--secondary-glow)));
     }
     
-    /* Glow effects */
-    .glow-primary {
-        box-shadow: var(--shadow-glow);
+    /* Neon borders */
+    .neon-border {
+        border: 1px solid hsl(var(--primary) / 0.3);
+        box-shadow: 0 0 10px hsl(var(--primary) / 0.1),
+                    inset 0 0 10px hsl(var(--primary) / 0.05);
     }
     
-    .glow-secondary {
-        box-shadow: var(--shadow-glow-purple);
+    .neon-border-purple {
+        border: 1px solid hsl(var(--secondary) / 0.3);
+        box-shadow: 0 0 10px hsl(var(--secondary) / 0.1),
+                    inset 0 0 10px hsl(var(--secondary) / 0.05);
     }
     
-    /* Glassmorphism */
-    .glass {
-        background: hsl(var(--card) / 0.6);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid hsl(var(--border) / 0.5);
+    .neon-border-pink {
+        border: 1px solid hsl(var(--accent) / 0.3);
+        box-shadow: 0 0 10px hsl(var(--accent) / 0.1),
+                    inset 0 0 10px hsl(var(--accent) / 0.05);
     }
     
-    /* Code block styling */
-    .code-block {
-        @apply bg-muted/50 rounded-lg p-4 font-mono text-sm;
-        border: 1px solid hsl(var(--border));
+    /* Neon glow effects */
+    .glow-cyan {
+        box-shadow: var(--shadow-neon-cyan);
+    }
+    
+    .glow-purple {
+        box-shadow: var(--shadow-neon-purple);
+    }
+    
+    .glow-pink {
+        box-shadow: var(--shadow-neon-pink);
+    }
+    
+    .glow-green {
+        box-shadow: var(--shadow-neon-green);
+    }
+    
+    /* Glass effect with neon */
+    .glass-neon {
+        background: hsl(var(--card) / 0.4);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid hsl(var(--primary) / 0.2);
+    }
+    
+    /* Pulsing neon animation */
+    .pulse-neon {
+        animation: pulseNeon 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulseNeon {
+        0%, 100% {
+            box-shadow: 0 0 5px hsl(var(--primary) / 0.3),
+                        0 0 10px hsl(var(--primary) / 0.2),
+                        0 0 15px hsl(var(--primary) / 0.1);
+        }
+        50% {
+            box-shadow: 0 0 10px hsl(var(--primary) / 0.5),
+                        0 0 20px hsl(var(--primary) / 0.3),
+                        0 0 30px hsl(var(--primary) / 0.2);
+        }
+    }
+    
+    /* Agent avatar glow */
+    .agent-glow-1 {
+        box-shadow: 0 0 20px hsl(var(--neon-cyan) / 0.4);
+    }
+    
+    .agent-glow-2 {
+        box-shadow: 0 0 20px hsl(var(--neon-purple) / 0.4);
+    }
+    
+    .agent-glow-3 {
+        box-shadow: 0 0 20px hsl(var(--neon-pink) / 0.4);
     }
 }
 
@@ -200,12 +224,8 @@ code {
     }
     
     @keyframes fadeIn {
-        from {
-            opacity: 0;
-        }
-        to {
-            opacity: 1;
-        }
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
     
     @keyframes slideUp {

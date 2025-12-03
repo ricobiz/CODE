@@ -70,28 +70,28 @@ module.exports = {
                     '3': 'hsl(var(--chart-3))',
                     '4': 'hsl(var(--chart-4))',
                     '5': 'hsl(var(--chart-5))'
+                },
+                neon: {
+                    cyan: 'hsl(var(--neon-cyan))',
+                    purple: 'hsl(var(--neon-purple))',
+                    pink: 'hsl(var(--neon-pink))',
+                    green: 'hsl(var(--neon-green))'
                 }
             },
             boxShadow: {
-                'glow': 'var(--shadow-glow)',
-                'glow-purple': 'var(--shadow-glow-purple)',
+                'neon-cyan': 'var(--shadow-neon-cyan)',
+                'neon-purple': 'var(--shadow-neon-purple)',
+                'neon-pink': 'var(--shadow-neon-pink)',
+                'neon-green': 'var(--shadow-neon-green)',
             },
             keyframes: {
                 'accordion-down': {
-                    from: {
-                        height: '0'
-                    },
-                    to: {
-                        height: 'var(--radix-accordion-content-height)'
-                    }
+                    from: { height: '0' },
+                    to: { height: 'var(--radix-accordion-content-height)' }
                 },
                 'accordion-up': {
-                    from: {
-                        height: 'var(--radix-accordion-content-height)'
-                    },
-                    to: {
-                        height: '0'
-                    }
+                    from: { height: 'var(--radix-accordion-content-height)' },
+                    to: { height: '0' }
                 },
                 'fade-in': {
                     '0%': { opacity: '0' },
@@ -105,9 +105,13 @@ module.exports = {
                     '0%': { opacity: '0', transform: 'scale(0.95)' },
                     '100%': { opacity: '1', transform: 'scale(1)' }
                 },
-                'pulse-glow': {
-                    '0%, 100%': { boxShadow: 'var(--shadow-glow)' },
-                    '50%': { boxShadow: '0 0 30px hsl(217 91% 60% / 0.5), 0 0 60px hsl(217 91% 60% / 0.2)' }
+                'pulse-neon': {
+                    '0%, 100%': { 
+                        boxShadow: '0 0 5px hsl(var(--primary) / 0.3), 0 0 10px hsl(var(--primary) / 0.2)' 
+                    },
+                    '50%': { 
+                        boxShadow: '0 0 10px hsl(var(--primary) / 0.5), 0 0 20px hsl(var(--primary) / 0.3)' 
+                    }
                 }
             },
             animation: {
@@ -116,7 +120,7 @@ module.exports = {
                 'fade-in': 'fade-in 0.3s ease-in',
                 'slide-up': 'slide-up 0.3s ease-out',
                 'scale-in': 'scale-in 0.2s ease-out',
-                'pulse-glow': 'pulse-glow 2s ease-in-out infinite'
+                'pulse-neon': 'pulse-neon 2s ease-in-out infinite'
             }
         }
   },
