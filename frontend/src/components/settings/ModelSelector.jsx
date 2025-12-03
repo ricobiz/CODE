@@ -7,16 +7,26 @@ import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Search, Sparkles, Zap, Brain } from 'lucide-react';
 
-// Popular models from OpenRouter
+// Real OpenRouter models - https://openrouter.ai/models
 const POPULAR_MODELS = [
   { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic', icon: Brain },
+  { id: 'anthropic/claude-3-opus', name: 'Claude 3 Opus', provider: 'Anthropic', icon: Brain },
+  { id: 'anthropic/claude-3-haiku', name: 'Claude 3 Haiku', provider: 'Anthropic', icon: Brain },
   { id: 'openai/gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'OpenAI', icon: Sparkles },
   { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', icon: Zap },
-  { id: 'anthropic/claude-3-opus', name: 'Claude 3 Opus', provider: 'Anthropic', icon: Brain },
+  { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', icon: Zap },
   { id: 'google/gemini-pro-1.5', name: 'Gemini Pro 1.5', provider: 'Google', icon: Sparkles },
+  { id: 'google/gemini-flash-1.5', name: 'Gemini Flash 1.5', provider: 'Google', icon: Zap },
+  { id: 'meta-llama/llama-3.1-405b-instruct', name: 'Llama 3.1 405B', provider: 'Meta', icon: Brain },
   { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B', provider: 'Meta', icon: Zap },
+  { id: 'meta-llama/llama-3.1-8b-instruct', name: 'Llama 3.1 8B', provider: 'Meta', icon: Zap },
+  { id: 'mistralai/mistral-large', name: 'Mistral Large', provider: 'Mistral AI', icon: Brain },
+  { id: 'mistralai/mistral-medium', name: 'Mistral Medium', provider: 'Mistral AI', icon: Sparkles },
   { id: 'cohere/command-r-plus', name: 'Command R+', provider: 'Cohere', icon: Brain },
-  { id: 'mistralai/mistral-large', name: 'Mistral Large', provider: 'Mistral', icon: Sparkles },
+  { id: 'cohere/command-r', name: 'Command R', provider: 'Cohere', icon: Sparkles },
+  { id: 'perplexity/llama-3.1-sonar-large-128k-online', name: 'Sonar Large (Online)', provider: 'Perplexity', icon: Brain },
+  { id: 'qwen/qwen-2-72b-instruct', name: 'Qwen 2 72B', provider: 'Alibaba', icon: Sparkles },
+  { id: 'deepseek/deepseek-chat', name: 'DeepSeek Chat', provider: 'DeepSeek', icon: Brain },
 ];
 
 export const ModelSelector = () => {
