@@ -159,9 +159,11 @@ USER REQUEST: {user_task}
 
 Your task:
 1. Analyze the request
-2. Propose a technical approach
+2. Propose a technical approach (NO CODE YET, just architecture ideas)
 3. Suggest technology stack
 4. Outline key features
+
+IMPORTANT: This is DISCUSSION phase. Do NOT write code yet. Just discuss the approach.
 
 Be concise (3-5 sentences). You will discuss this with {self.agent2_name} next.
 """
