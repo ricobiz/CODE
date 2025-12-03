@@ -1,11 +1,11 @@
 import React from 'react';
-import { MainLayout } from '../components/layout/MainLayout';
+import { ResponsiveLayout } from '../components/layout/ResponsiveLayout';
 import { Toaster } from '../components/ui/sonner';
 
 export const HomePage = () => {
   return (
     <>
-      <MainLayout />
+      <ResponsiveLayout />
       <Toaster position="top-right" richColors />
     </>
   );
