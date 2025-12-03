@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { MessageItem } from './MessageItem';
 import { Bot, Sparkles, ChevronDown } from 'lucide-react';
@@ -8,31 +8,49 @@ export const MessageList = () => {
   const { messages, isGenerating } = useApp();
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const userScrolledRef = useRef(false);
+  const lastMessageCountRef = useRef(messages.length);
   
-  // Check if user is at bottom
-  const checkIfAtBottom = () => {
+  // Check if user is near bottom (within 150px)
+  const isNearBottom = useCallback(() => {
+    if (!containerRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+    return scrollHeight - scrollTop - clientHeight < 150;
+  }, []);
+  
+  // Handle scroll events
+  const handleScroll = useCallback(() => {
     if (!containerRef.current) return;
     
-    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    const atBottom = scrollHeight - scrollTop - clientHeight < 100;
-    setIsAtBottom(atBottom);
-    setShowScrollButton(!atBottom && messages.length > 0);
-  };
-  
-  // Auto scroll only if user is at bottom
-  useEffect(() => {
-    if (isAtBottom && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    const nearBottom = isNearBottom();
+    setShowScrollButton(!nearBottom && messages.length > 0);
+    
+    // Track if user manually scrolled up
+    if (!nearBottom) {
+      userScrolledRef.current = true;
     }
-  }, [messages, isAtBottom]);
+  }, [isNearBottom, messages.length]);
+  
+  // Auto-scroll when new messages arrive (only if user hasn't scrolled up)
+  useEffect(() => {
+    // New message arrived
+    if (messages.length > lastMessageCountRef.current) {
+      // Only auto-scroll if user is near bottom or if it's a new user message
+      if (!userScrolledRef.current || isNearBottom()) {
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
+    }
+    lastMessageCountRef.current = messages.length;
+  }, [messages.length, isNearBottom]);
   
   // Scroll to bottom manually
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
+    userScrolledRef.current = false;
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    setIsAtBottom(true);
-  };
+  }, []);
   
   if (messages.length === 0) {
     return (
@@ -54,8 +72,12 @@ export const MessageList = () => {
     <div className="relative h-full">
       <div 
         ref={containerRef}
-        className="h-full overflow-y-auto custom-scrollbar p-4"
-        onScroll={checkIfAtBottom}
+        className="h-full overflow-y-auto overscroll-contain custom-scrollbar p-4"
+        onScroll={handleScroll}
+        style={{ 
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y'
+        }}
       >
         {messages.map((message) => (
           <MessageItem key={message.id} message={message} />
@@ -64,10 +86,10 @@ export const MessageList = () => {
         {/* Typing indicator */}
         {isGenerating && (
           <div className="flex items-start gap-3 mb-4 animate-pulse">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center glow-cyan">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center glow-cyan flex-shrink-0">
               <Bot className="w-4 h-4 text-background" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="glass-neon rounded-2xl rounded-tl-sm px-4 py-3 max-w-[200px]">
                 <div className="flex gap-1.5">
                   <span className="w-2 h-2 bg-neon-cyan rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -79,7 +101,7 @@ export const MessageList = () => {
           </div>
         )}
         
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-1" />
       </div>
       
       {/* Scroll to bottom button */}
