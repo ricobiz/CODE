@@ -95,7 +95,18 @@ code {
         -moz-text-size-adjust: 100%;
         -ms-text-size-adjust: 100%;
         text-size-adjust: 100%;
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+        height: 100%;
     }
+    
+    #root {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+    
     h1, h2, h3, h4, h5, h6 {
         font-family: 'Space Grotesk', sans-serif;
     }
@@ -107,6 +118,12 @@ code {
         
         input, textarea, button {
             font-size: 16px;
+        }
+        
+        /* Better mobile scrolling */
+        .custom-scrollbar {
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
         }
     }
 }
