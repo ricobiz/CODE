@@ -257,6 +257,55 @@ async def get_consensus_status(session_id: str):
         'completed_at': session.get('completed_at', '').isoformat() if session.get('completed_at') else None
     }
 
+
+@api_router.post("/ping-model")
+async def ping_model(model: str, api_key: str):
+    """
+    Ping a model to check if it's working.
+    Returns: working, limited, or unavailable
+    """
+    try:
+        test_message = [{"role": "user", "content": "Respond with 'OK' if you can read this."}]
+        
+        result = await call_openrouter_model(
+            model=model,
+            messages=test_message,
+            api_key=api_key,
+            max_tokens=10
+        )
+        
+        # Check response
+        content = result['content'].strip().upper()
+        if 'OK' in content or len(content) > 0:
+            return {
+                "status": "working",
+                "model": model,
+                "response": result['content']
+            }
+        else:
+            return {
+                "status": "limited",
+                "model": model,
+                "response": result['content']
+            }
+            
+    except Exception as e:
+        error_msg = str(e)
+        
+        # Check if model is unavailable or just rate limited
+        if 'rate' in error_msg.lower() or 'limit' in error_msg.lower():
+            return {
+                "status": "limited",
+                "model": model,
+                "error": "Rate limited or quota exceeded"
+            }
+        else:
+            return {
+                "status": "unavailable",
+                "model": model,
+                "error": error_msg
+            }
+
 @api_router.get("/models")
 async def get_models(x_api_key: str = None):
     """
