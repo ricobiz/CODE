@@ -146,6 +146,9 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     if request.consensus_mode and len(request.models) >= 2:
         session_id = str(uuid.uuid4())
         
+        # Quick ping check before starting
+        logger.info(f"Consensus mode: Checking models {request.models}")
+        
         # Create consensus engine
         engine = ConsensusEngine(
             models=request.models,
@@ -169,10 +172,12 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             [msg.dict() for msg in request.conversation_history]
         )
         
+        model_names = [m.split('/')[-1] for m in request.models]
+        
         return ChatResponse(
             responses=[ModelResponse(
                 model="system",
-                content="🚀 Consensus mode activated! Agents are discussing and planning...",
+                content=f"🚀 Consensus mode activated!\n\n👥 Team: {model_names[0]} & {model_names[1]}\n📋 Starting planning phase...",
                 metadata={"session_id": session_id}
             )],
             consensus_data={
