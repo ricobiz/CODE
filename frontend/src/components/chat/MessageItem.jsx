@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Bot, User, Code2, Users, FileCode, CheckCircle2, ChevronDown, ChevronUp, Play } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -55,13 +55,15 @@ export const MessageItem = ({ message }) => {
   
   const modelColor = getModelColor(message.model);
   
-  // Extract code blocks from message
-  const extractCodeBlocks = (text) => {
+  // Extract code blocks from message - memoized
+  const codeBlocks = useMemo(() => {
+    if (isUser || isSystem) return [];
+    
     const codeBlockRegex = /```([\w\.\-]+)?\s*\n([\s\S]*?)```/g;
     const blocks = [];
     let match;
     
-    while ((match = codeBlockRegex.exec(text)) !== null) {
+    while ((match = codeBlockRegex.exec(message.content)) !== null) {
       let filename = match[1] || 'code';
       const code = match[2].trim();
       
@@ -78,24 +80,22 @@ export const MessageItem = ({ message }) => {
     }
     
     return blocks;
-  };
+  }, [message.content, isUser, isSystem]);
   
   // Remove code blocks from text and get only the text part
-  const getTextWithoutCode = (text) => {
-    return text
+  const textContent = useMemo(() => {
+    if (codeBlocks.length === 0) return message.content;
+    return message.content
       .replace(/```[\w\.\-]*\s*\n[\s\S]*?```/g, '')
       .trim();
-  };
+  }, [message.content, codeBlocks.length]);
   
-  const codeBlocks = !isUser && !isSystem ? extractCodeBlocks(message.content) : [];
   const hasCode = codeBlocks.length > 0;
-  const textContent = hasCode ? getTextWithoutCode(message.content) : message.content;
   
   // AUTO-APPLY code to files when message arrives
   useEffect(() => {
     if (hasCode && !appliedRef.current) {
       appliedRef.current = true;
-      setCodeApplied(true);
       
       // Apply all code blocks to files
       codeBlocks.forEach(({ filename, code }) => {
@@ -105,9 +105,9 @@ export const MessageItem = ({ message }) => {
       // Refresh preview after a short delay
       setTimeout(() => {
         refreshPreview();
+        setCodeApplied(true);
+        toast.success(`Auto-applied ${codeBlocks.length} file(s) to preview`);
       }, 300);
-      
-      toast.success(`Auto-applied ${codeBlocks.length} file(s) to preview`);
     }
   }, [hasCode, codeBlocks, updateFile, refreshPreview]);
   
