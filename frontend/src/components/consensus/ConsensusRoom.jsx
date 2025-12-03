@@ -83,7 +83,11 @@ export const ConsensusRoom = () => {
                       {msg.timestamp && new Date(msg.timestamp).toLocaleTimeString()}
                     </span>
                   </div>
-                  <p className="text-sm text-foreground/90 leading-relaxed">
+                  <p className={`text-sm leading-relaxed ${
+                    msg.type === 'error' ? 'text-destructive' :
+                    msg.type === 'agreement' ? 'text-neon-green' :
+                    'text-foreground/90'
+                  }`}>
                     {msg.content}
                   </p>
                 </div>
