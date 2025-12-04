@@ -109,7 +109,7 @@ async def call_model(model: str, messages: List[Dict], api_key: str, max_tokens:
 async def generate_design_image(model: str, prompt: str, api_key: str) -> Dict:
     """
     Generate a design image using OpenRouter's image generation models.
-    Returns the image URL or base64 data.
+    Returns the image URL.
     """
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -127,7 +127,6 @@ Format: Flat design, clear elements, readable text."""
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": design_prompt}],
-        "modalities": ["image", "text"],  # Enable image generation
         "max_tokens": 1000
     }
     
@@ -142,43 +141,31 @@ Format: Flat design, clear elements, readable text."""
         response.raise_for_status()
         data = response.json()
         
-        # Parse response - may contain image URL or inline image
-        content = data["choices"][0]["message"]["content"]
+        # Parse response
+        message = data["choices"][0]["message"]
+        content = message.get("content", "")
         image_url = None
         
-        # Check if content contains image parts
-        if isinstance(content, list):
-            for part in content:
-                if isinstance(part, dict):
-                    if part.get("type") == "image_url":
-                        image_url = part.get("image_url", {}).get("url")
-                    elif part.get("type") == "image":
-                        # Base64 image
-                        image_url = f"data:image/png;base64,{part.get('data', '')}"
-        elif isinstance(content, str):
-            # Check for markdown image or URL
-            url_match = re.search(r'!\[.*?\]\((https?://[^)]+)\)', content)
+        # Check for 'images' array (OpenRouter format)
+        images = message.get("images", [])
+        if images and len(images) > 0:
+            first_image = images[0]
+            if isinstance(first_image, dict):
+                image_url = first_image.get("image_url") or first_image.get("url")
+            elif isinstance(first_image, str):
+                image_url = first_image
+        
+        # Fallback: check content for URLs
+        if not image_url and isinstance(content, str):
+            url_match = re.search(r'https?://[^\s\)\"]+\.(png|jpg|jpeg|webp|gif)', content)
             if url_match:
-                image_url = url_match.group(1)
-            # Check for inline base64
-            base64_match = re.search(r'data:image/[^;]+;base64,([A-Za-z0-9+/=]+)', content)
-            if base64_match:
-                image_url = base64_match.group(0)
+                image_url = url_match.group(0)
         
-        # Also check for 'inline_data' in response structure
-        message = data["choices"][0]["message"]
-        if "parts" in message:
-            for part in message["parts"]:
-                if "inline_data" in part:
-                    mime = part["inline_data"].get("mime_type", "image/png")
-                    b64 = part["inline_data"].get("data", "")
-                    image_url = f"data:{mime};base64,{b64}"
-        
-        text_content = content if isinstance(content, str) else "Design generated"
+        logger.info(f"[Designer] Image URL: {image_url[:50] if image_url else 'None'}...")
         
         return {
             "model": model,
-            "content": text_content,
+            "content": content if isinstance(content, str) else "Design generated",
             "image_url": image_url,
             "metadata": {"phase": "designer", "has_image": image_url is not None}
         }
