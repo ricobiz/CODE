@@ -3,29 +3,22 @@ import Split from '@uiw/react-split';
 import { ChatPanel } from '../chat/ChatPanel';
 import { EditorPanel } from '../editor/EditorPanel';
 import { PreviewPanel } from '../preview/PreviewPanel';
-import { ConsensusRoom } from '../consensus/ConsensusRoom';
-import { ProgressPanel } from '../progress/ProgressPanel';
-import { useConsensus } from '../../contexts/ConsensusContext';
 import { Code2, Eye } from 'lucide-react';
 import { Button } from '../ui/button';
 
 export const MainLayout = () => {
-  const { isConsensusMode } = useConsensus();
   const [showCode, setShowCode] = useState(false);
   
   return (
     <div className="h-full overflow-hidden flex flex-col">
-      {/* Progress Panel - always on top when active */}
-      <ProgressPanel />
-      
       <div className="flex-1 overflow-hidden">
         <Split
           style={{ height: '100%', overflow: 'hidden' }}
           lineBar
         >
-          {/* Left Panel: Chat or Consensus Room */}
+          {/* Left Panel: Chat */}
           <div style={{ minWidth: 300, maxWidth: '40%' }} className="h-full">
-            {isConsensusMode ? <ConsensusRoom /> : <ChatPanel />}
+            <ChatPanel />
           </div>
           
           {/* Right Panel: Code/Preview Toggle */}

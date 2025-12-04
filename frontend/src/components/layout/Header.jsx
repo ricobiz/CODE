@@ -1,19 +1,24 @@
 import React, { useState } from 'react';
-import { Settings, FolderOpen, Code2, Sparkles, Menu, Zap } from 'lucide-react';
+import { Settings, FolderOpen, Code2, Sparkles, Menu } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useApp } from '../../contexts/AppContext';
-import { useConsensus } from '../../contexts/ConsensusContext';
 import { SettingsDialog } from '../settings/SettingsDialog';
 import { ProjectDialog } from '../project/ProjectDialog';
 import { Badge } from '../ui/badge';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
 
 export const Header = () => {
-  const { currentProject, selectedModels, chatMode, setChatMode } = useApp();
-  const { isConsensusMode, setIsConsensusMode } = useConsensus();
+  const { currentProject, selectedModels } = useApp();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Get mode description
+  const getModeText = () => {
+    if (selectedModels.length === 0) return 'No models';
+    if (selectedModels.length === 1) return 'Solo mode';
+    return 'Team mode';
+  };
   
   return (
     <>
@@ -41,23 +46,19 @@ export const Header = () => {
         
         {/* Desktop actions */}
         <div className="hidden md:flex items-center gap-3">
-          {/* Consensus Mode Toggle */}
-          <Button
-            variant={isConsensusMode ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setIsConsensusMode(!isConsensusMode)}
-            className={`gap-2 ${isConsensusMode ? 'glow-purple' : ''}`}
-          >
-            <Zap className="w-4 h-4" />
-            Consensus
-          </Button>
-          
-          {/* Active models indicator */}
+          {/* Models indicator */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/30 border neon-border">
             <Sparkles className="w-3.5 h-3.5 text-neon-cyan" />
-            <span className="text-xs text-muted-foreground">Models:</span>
-            <Badge variant="secondary" className="text-xs bg-neon-cyan/20 text-neon-cyan border-0">
-              {selectedModels.length}
+            <span className="text-xs text-muted-foreground">{getModeText()}:</span>
+            <Badge 
+              variant="secondary" 
+              className={`text-xs border-0 ${
+                selectedModels.length >= 2 
+                  ? 'bg-neon-purple/20 text-neon-purple' 
+                  : 'bg-neon-cyan/20 text-neon-cyan'
+              }`}
+            >
+              {selectedModels.length} model{selectedModels.length !== 1 ? 's' : ''}
             </Badge>
           </div>
           
@@ -99,25 +100,25 @@ export const Header = () => {
             </SheetHeader>
             
             <div className="flex flex-col gap-3 mt-6">
-              {/* Consensus Toggle */}
-              <Button
-                variant={isConsensusMode ? 'default' : 'outline'}
-                onClick={() => setIsConsensusMode(!isConsensusMode)}
-                className="w-full justify-start gap-2"
-              >
-                <Zap className="w-4 h-4" />
-                Consensus Mode
-                {isConsensusMode && (
-                  <Badge variant="secondary" className="ml-auto">ON</Badge>
-                )}
-              </Button>
-              
-              {/* Models */}
+              {/* Models info */}
               <div className="p-3 rounded-lg glass-neon">
-                <span className="text-sm text-muted-foreground">Active Models:</span>
-                <Badge variant="secondary" className="ml-2 bg-neon-cyan/20 text-neon-cyan">
-                  {selectedModels.length}
+                <span className="text-sm text-muted-foreground">{getModeText()}:</span>
+                <Badge 
+                  variant="secondary" 
+                  className={`ml-2 ${
+                    selectedModels.length >= 2 
+                      ? 'bg-neon-purple/20 text-neon-purple' 
+                      : 'bg-neon-cyan/20 text-neon-cyan'
+                  }`}
+                >
+                  {selectedModels.length} model{selectedModels.length !== 1 ? 's' : ''}
                 </Badge>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {selectedModels.length >= 2 
+                    ? 'Models will collaborate on your tasks'
+                    : 'Add more models in Settings for team mode'
+                  }
+                </p>
               </div>
               
               {/* Actions */}
