@@ -25,23 +25,16 @@ const ROLE_COLORS = {
   debugger: 'border-neon-purple/50 bg-neon-purple/10'
 };
 
-// Vision-capable models for Eyes role
-const VISION_MODELS = [
-  'google/gemini-2.0-flash-exp:free',
-  'google/gemini-pro-vision',
-  'openai/gpt-4o',
-  'openai/gpt-4-vision-preview',
-  'anthropic/claude-3.5-sonnet',
-  'anthropic/claude-3-opus',
+// Vision-capable models for Eyes role (keywords to match)
+const VISION_KEYWORDS = [
+  'vision', 'gpt-4o', 'gpt-4-turbo', 'gpt-5', 'gemini', 'claude-3', 'claude-4',
+  'nova', 'llava', 'qwen-vl', 'pixtral', 'molmo'
 ];
 
-// Image generation models for Designer role
-const IMAGE_GEN_MODELS = [
-  'google/gemini-2.5-flash-image-preview',
-  'google/gemini-2.5-flash-image',
-  'google/gemini-3-pro-image-preview',
-  'openai/gpt-5-image',
-  'openai/gpt-5-image-mini',
+// Image generation models for Designer role (keywords to match)
+const IMAGE_GEN_KEYWORDS = [
+  'image', 'nano-banana', 'dall-e', 'midjourney', 'stable-diffusion',
+  'imagen', 'gemini-3-pro-image', 'gemini-2.5-flash-image', 'gemini-2.0-flash-exp'
 ];
 
 export const RoleSettings = () => {
