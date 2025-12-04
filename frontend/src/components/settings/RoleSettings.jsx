@@ -25,7 +25,7 @@ const ROLE_COLORS = {
   debugger: 'border-neon-purple/50 bg-neon-purple/10'
 };
 
-// Vision-capable models for Eyes and Designer roles
+// Vision-capable models for Eyes role
 const VISION_MODELS = [
   'google/gemini-2.0-flash-exp:free',
   'google/gemini-pro-vision',
@@ -33,6 +33,12 @@ const VISION_MODELS = [
   'openai/gpt-4-vision-preview',
   'anthropic/claude-3.5-sonnet',
   'anthropic/claude-3-opus',
+];
+
+// Image generation models for Designer role
+const IMAGE_GEN_MODELS = [
+  'google/gemini-2.5-flash-preview-image-generation',
+  'google/gemini-2.0-flash-exp:free',
 ];
 
 export const RoleSettings = () => {
