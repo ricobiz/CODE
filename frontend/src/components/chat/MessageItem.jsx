@@ -168,7 +168,22 @@ export const MessageItem = ({ message }) => {
           <span className="text-sm font-bold text-foreground">
             {isUser ? 'You' : modelName}
           </span>
-          {!isUser && message.model && (
+          {!isUser && message.metadata?.phase && (
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "text-xs",
+                message.metadata.phase === 'code' && "border-neon-cyan/50 text-neon-cyan",
+                message.metadata.phase === 'review' && "border-neon-purple/50 text-neon-purple",
+                message.metadata.phase === 'fix' && "border-neon-green/50 text-neon-green"
+              )}
+            >
+              {message.metadata.phase === 'code' && '💻 Developer'}
+              {message.metadata.phase === 'review' && '🔍 Reviewer'}
+              {message.metadata.phase === 'fix' && '🔧 Fix'}
+            </Badge>
+          )}
+          {!isUser && message.model && !message.metadata?.phase && (
             <Badge variant="outline" className="text-xs border-neon-cyan/30 text-neon-cyan/70">
               AI Agent
             </Badge>
