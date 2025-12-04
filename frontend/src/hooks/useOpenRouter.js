@@ -4,17 +4,30 @@ import { useApp } from '../contexts/AppContext';
 import { toast } from 'sonner';
 
 export const useOpenRouter = () => {
-  const { apiKey, selectedModels, messages, addMessage, setIsGenerating, updateFile, refreshPreview } = useApp();
+  const { 
+    apiKey, 
+    roles,
+    selectedModels, 
+    messages, 
+    addMessage, 
+    setIsGenerating, 
+    updateFile, 
+    refreshPreview 
+  } = useApp();
   const [error, setError] = useState(null);
   
-  const sendMessage = useCallback(async (userMessage) => {
+  const sendMessage = useCallback(async (userMessage, screenshotBase64 = null) => {
     if (!apiKey) {
       toast.error('Please set your OpenRouter API key in settings');
       return;
     }
     
-    if (selectedModels.length === 0) {
-      toast.error('Please select at least one model in settings');
+    // Check if at least coder role has a model
+    const hasCoderModel = roles?.coder?.enabled && roles?.coder?.model;
+    const hasAnyModel = selectedModels.length > 0;
+    
+    if (!hasCoderModel && !hasAnyModel) {
+      toast.error('Please assign a model to the Coder role in settings');
       return;
     }
     
@@ -28,24 +41,30 @@ export const useOpenRouter = () => {
         content: userMessage
       });
       
-      // Prepare conversation history with model info
+      // Get active roles info
+      const activeRoles = Object.entries(roles || {})
+        .filter(([_, r]) => r.enabled && r.model)
+        .map(([key, _]) => key);
+      
+      if (activeRoles.length > 1) {
+        toast.info(`Team: ${activeRoles.map(r => r.charAt(0).toUpperCase() + r.slice(1)).join(' → ')}`);
+      }
+      
+      // Prepare conversation history
       const conversationHistory = messages.map(m => ({
         role: m.role,
         content: m.content,
         model: m.model || null
       }));
       
-      // Show mode info
-      if (selectedModels.length >= 2) {
-        toast.info(`Team mode: ${selectedModels.length} models collaborating`);
-      }
-      
-      // Send to backend
+      // Send to backend with roles config
       const response = await sendChatMessage(
         userMessage,
-        selectedModels,
+        selectedModels,  // Legacy support
         apiKey,
-        conversationHistory
+        conversationHistory,
+        roles,  // New roles config
+        screenshotBase64
       );
       
       // Add all model responses
@@ -59,9 +78,12 @@ export const useOpenRouter = () => {
           });
         });
         
-        // Show completion toast for team mode
-        if (selectedModels.length >= 2 && response.responses.length > 1) {
-          toast.success('Team collaboration complete!');
+        // Show completion info
+        const phases = response.responses
+          .map(r => r.metadata?.role || r.metadata?.phase)
+          .filter(Boolean);
+        if (phases.length > 1) {
+          toast.success(`Team completed: ${phases.join(' → ')}`);
         }
       }
       
@@ -76,7 +98,7 @@ export const useOpenRouter = () => {
       setIsGenerating(false);
       throw err;
     }
-  }, [apiKey, selectedModels, messages, addMessage, setIsGenerating]);
+  }, [apiKey, roles, selectedModels, messages, addMessage, setIsGenerating]);
   
   return {
     sendMessage,
