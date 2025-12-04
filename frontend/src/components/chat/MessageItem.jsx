@@ -173,14 +173,20 @@ export const MessageItem = ({ message }) => {
               variant="outline" 
               className={cn(
                 "text-xs",
-                message.metadata.phase === 'code' && "border-neon-cyan/50 text-neon-cyan",
-                message.metadata.phase === 'review' && "border-neon-purple/50 text-neon-purple",
+                message.metadata.phase === 'planner' && "border-blue-500/50 text-blue-400",
+                message.metadata.phase === 'designer' && "border-pink-500/50 text-pink-400",
+                message.metadata.phase === 'coder' && "border-neon-cyan/50 text-neon-cyan",
+                message.metadata.phase === 'eyes' && "border-yellow-500/50 text-yellow-400",
+                message.metadata.phase === 'debugger' && "border-neon-purple/50 text-neon-purple",
                 message.metadata.phase === 'fix' && "border-neon-green/50 text-neon-green"
               )}
             >
-              {message.metadata.phase === 'code' && '💻 Developer'}
-              {message.metadata.phase === 'review' && '🔍 Reviewer'}
-              {message.metadata.phase === 'fix' && '🔧 Fix'}
+              {message.metadata.phase === 'planner' && '🎯 Planner'}
+              {message.metadata.phase === 'designer' && '🎨 Designer'}
+              {message.metadata.phase === 'coder' && '💻 Coder'}
+              {message.metadata.phase === 'eyes' && '👁️ Eyes'}
+              {message.metadata.phase === 'debugger' && '🔧 Debugger'}
+              {message.metadata.phase === 'fix' && '✨ Fixed'}
             </Badge>
           )}
           {!isUser && message.model && !message.metadata?.phase && (
