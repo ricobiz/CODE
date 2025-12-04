@@ -63,23 +63,37 @@ export const RoleSettings = () => {
   
   // Filter models for different roles
   const getModelsForRole = (roleKey) => {
+    // If no models loaded, return empty array
+    if (!models || models.length === 0) return [];
+    
     if (roleKey === 'designer') {
-      // For designer, prioritize image generation models
-      return models.filter(m => 
-        IMAGE_GEN_MODELS.some(ig => m.id.includes(ig.split('/')[1])) ||
-        m.id.includes('image') ||
-        m.id.includes('gemini-2')
-      );
+      // For designer, prioritize image generation models but show all as fallback
+      const imageModels = models.filter(m => {
+        const idLower = m.id.toLowerCase();
+        const nameLower = (m.name || '').toLowerCase();
+        // Check output modalities for image
+        const canGenerateImage = m.architecture?.output_modalities?.includes('image');
+        return canGenerateImage || 
+               IMAGE_GEN_KEYWORDS.some(kw => idLower.includes(kw) || nameLower.includes(kw));
+      });
+      // If no image models found, return all models
+      return imageModels.length > 0 ? imageModels : models;
     }
+    
     if (roleKey === 'eyes') {
       // For eyes, prioritize vision-capable models
-      return models.filter(m => 
-        VISION_MODELS.some(vm => m.id.includes(vm.split('/')[1])) ||
-        m.id.includes('vision') ||
-        m.id.includes('gemini') ||
-        m.id.includes('gpt-4o')
-      );
+      const visionModels = models.filter(m => {
+        const idLower = m.id.toLowerCase();
+        const nameLower = (m.name || '').toLowerCase();
+        // Check input modalities for image
+        const canSeeImages = m.architecture?.input_modalities?.includes('image');
+        return canSeeImages ||
+               VISION_KEYWORDS.some(kw => idLower.includes(kw) || nameLower.includes(kw));
+      });
+      // If no vision models found, return all models
+      return visionModels.length > 0 ? visionModels : models;
     }
+    
     return models;
   };
   
