@@ -67,9 +67,11 @@ OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Image generation models
 IMAGE_GEN_MODELS = [
-    'google/gemini-2.5-flash-preview-image-generation',
-    'google/gemini-2.0-flash-exp:free',
     'google/gemini-2.5-flash-image-preview',
+    'google/gemini-2.5-flash-image',
+    'google/gemini-3-pro-image-preview',
+    'openai/gpt-5-image',
+    'openai/gpt-5-image-mini',
 ]
 
 def get_name(model: str) -> str:
