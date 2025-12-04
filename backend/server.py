@@ -194,14 +194,40 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     ]
     messages.append({"role": "user", "content": request.message})
     
-    # Add system message for group chat context
+    # Add system message for code generation
+    code_system_prompt = """You are an expert web developer AI assistant in a code generation IDE.
+Your job is to CREATE working code for what the user asks.
+
+IMPORTANT RULES:
+1. ALWAYS generate actual code, not just describe it
+2. Use code blocks with filenames like this:
+```index.html
+<your HTML code>
+```
+```style.css
+<your CSS code>
+```
+```script.js
+<your JavaScript code>
+```
+3. Create complete, working implementations
+4. Keep responses concise - mainly code, minimal explanations
+5. The code will be automatically applied to a live preview
+
+When user asks for something (like "make a clock"), generate the actual HTML/CSS/JS code immediately."""
+
     if len(request.models) > 1:
         model_names = [m.split('/')[-1] for m in request.models]
         system_msg = {
             "role": "system",
-            "content": f"You are in a group chat with: USER and other AI agents ({', '.join(model_names)}). Respond naturally and helpfully to the user's request."
+            "content": code_system_prompt + f"\n\nYou are in a group chat with other AI agents ({', '.join(model_names)}). Each of you should provide your own implementation."
         }
-        messages.insert(0, system_msg)
+    else:
+        system_msg = {
+            "role": "system",
+            "content": code_system_prompt
+        }
+    messages.insert(0, system_msg)
     
     responses = []
     
