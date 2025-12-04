@@ -213,6 +213,21 @@ export const MessageItem = ({ message }) => {
           </div>
         )}
         
+        {/* Designer generated image */}
+        {message.image_url && (
+          <div className="mt-2 rounded-lg overflow-hidden border border-pink-500/30 bg-card/50">
+            <div className="px-3 py-1.5 bg-pink-500/10 flex items-center gap-2">
+              <span className="text-xs text-pink-400">🎨 Design Reference</span>
+            </div>
+            <img 
+              src={message.image_url} 
+              alt="Generated design" 
+              className="w-full max-w-md rounded-b-lg"
+              style={{ maxHeight: '300px', objectFit: 'contain' }}
+            />
+          </div>
+        )}
+        
         {/* Code blocks - collapsed by default, auto-applied */}
         {hasCode && (
           <div className="space-y-2 w-full">
