@@ -3,14 +3,16 @@ import axios from 'axios';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-// Chat API - handles both single and multi-model modes automatically
-export const sendChatMessage = async (message, models, apiKey, conversationHistory) => {
+// Chat API - handles roles-based workflow
+export const sendChatMessage = async (message, models, apiKey, conversationHistory, roles = null, screenshotBase64 = null) => {
   try {
     const response = await axios.post(`${API}/chat`, {
       message,
       models,
       api_key: apiKey,
-      conversation_history: conversationHistory
+      conversation_history: conversationHistory,
+      roles,
+      screenshot_base64: screenshotBase64
     });
     return response.data;
   } catch (error) {
@@ -19,62 +21,28 @@ export const sendChatMessage = async (message, models, apiKey, conversationHisto
   }
 };
 
-// Get consensus status
-export const getConsensusStatus = async (sessionId) => {
+// Review screenshot with vision model
+export const reviewScreenshot = async (model, apiKey, screenshotBase64, taskDescription = '') => {
   try {
-    const response = await axios.get(`${API}/consensus/${sessionId}`);
+    const response = await axios.post(`${API}/review-screenshot`, null, {
+      params: { model, api_key: apiKey, screenshot_base64: screenshotBase64, task_description: taskDescription }
+    });
     return response.data;
   } catch (error) {
-    console.error('Consensus status error:', error);
+    console.error('Review screenshot error:', error);
     throw error;
   }
 };
 
-// Get available models from OpenRouter
-export const getAvailableModels = async (apiKey) => {
+// Fetch available models from OpenRouter
+export const fetchModels = async (apiKey) => {
   try {
     const response = await axios.get(`${API}/models`, {
       headers: { 'x-api-key': apiKey }
     });
     return response.data;
   } catch (error) {
-    console.error('Models API error:', error);
-    throw error;
-  }
-};
-
-// Execute code (for full-stack preview)
-export const executeCode = async (code, language) => {
-  try {
-    const response = await axios.post(`${API}/execute`, {
-      code,
-      language
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Execute API error:', error);
-    throw error;
-  }
-};
-
-// Save project to backend
-export const saveProjectToBackend = async (project) => {
-  try {
-    const response = await axios.post(`${API}/projects`, project);
-    return response.data;
-  } catch (error) {
-    console.error('Save project error:', error);
-    throw error;
-  }
-};
-
-// Load projects from backend
-export const loadProjectsFromBackend = async () => {
-  try {
-    const response = await axios.get(`${API}/projects`);
-    return response.data;
-  } catch (error) {
-    console.error('Load projects error:', error);
+    console.error('Fetch models error:', error);
     throw error;
   }
 };
