@@ -3,15 +3,14 @@ import axios from 'axios';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-// OpenRouter API
-export const sendChatMessage = async (message, models, apiKey, conversationHistory, consensusMode = false) => {
+// Chat API - handles both single and multi-model modes automatically
+export const sendChatMessage = async (message, models, apiKey, conversationHistory) => {
   try {
     const response = await axios.post(`${API}/chat`, {
       message,
       models,
       api_key: apiKey,
-      conversation_history: conversationHistory,
-      consensus_mode: consensusMode
+      conversation_history: conversationHistory
     });
     return response.data;
   } catch (error) {
