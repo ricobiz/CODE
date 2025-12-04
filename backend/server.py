@@ -153,7 +153,12 @@ Format: Flat design, clear elements, readable text."""
         if images and len(images) > 0:
             first_image = images[0]
             if isinstance(first_image, dict):
-                image_url = first_image.get("image_url") or first_image.get("url")
+                # Can be {'image_url': {'url': '...'}} or {'url': '...'}
+                if 'image_url' in first_image:
+                    img_url = first_image['image_url']
+                    image_url = img_url.get('url') if isinstance(img_url, dict) else img_url
+                else:
+                    image_url = first_image.get('url')
             elif isinstance(first_image, str):
                 image_url = first_image
         
