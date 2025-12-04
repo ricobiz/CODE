@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime, timezone
 import httpx
 import base64
+import re
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -31,13 +32,6 @@ class RoleConfig(BaseModel):
     model: Optional[str] = None
     enabled: bool = True
 
-class RolesConfig(BaseModel):
-    planner: Optional[RoleConfig] = None
-    designer: Optional[RoleConfig] = None
-    coder: Optional[RoleConfig] = None
-    eyes: Optional[RoleConfig] = None
-    debugger: Optional[RoleConfig] = None
-
 class Message(BaseModel):
     role: str
     content: str
@@ -45,15 +39,16 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    models: List[str] = []  # Legacy support
-    roles: Optional[Dict[str, Any]] = None  # New roles config
+    models: List[str] = []
+    roles: Optional[Dict[str, Any]] = None
     api_key: str
     conversation_history: Optional[List[Message]] = []
-    screenshot_base64: Optional[str] = None  # For vision review
+    screenshot_base64: Optional[str] = None
 
 class ModelResponse(BaseModel):
     model: str
     content: str
+    image_url: Optional[str] = None  # For designer-generated images
     metadata: Optional[Dict[str, Any]] = {}
 
 class ChatResponse(BaseModel):
@@ -70,6 +65,13 @@ class Project(BaseModel):
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
+# Image generation models
+IMAGE_GEN_MODELS = [
+    'google/gemini-2.5-flash-preview-image-generation',
+    'google/gemini-2.0-flash-exp:free',
+    'google/gemini-2.5-flash-image-preview',
+]
+
 def get_name(model: str) -> str:
     name = model.split('/')[-1]
     names = {
@@ -78,11 +80,12 @@ def get_name(model: str) -> str:
         'gpt-4o': 'GPT-4o',
         'gpt-4o-mini': 'GPT-4o Mini',
         'gemini-2.0-flash-exp:free': 'Gemini Flash',
-        'gemini-pro-vision': 'Gemini Vision',
+        'gemini-2.5-flash-preview-image-generation': 'Nano Banana',
     }
     return names.get(name, name[:20])
 
 async def call_model(model: str, messages: List[Dict], api_key: str, max_tokens: int = 4000) -> Dict:
+    """Call a text model via OpenRouter."""
     headers = {
         "Authorization": f"Bearer {api_key}",
         "HTTP-Referer": "https://codeagent.app",
@@ -103,34 +106,115 @@ async def call_model(model: str, messages: List[Dict], api_key: str, max_tokens:
             "metadata": {"usage": data.get("usage", {})}
         }
 
-async def call_vision_model(model: str, prompt: str, image_base64: str, api_key: str) -> Dict:
-    """Call a vision model with an image."""
+async def generate_design_image(model: str, prompt: str, api_key: str) -> Dict:
+    """
+    Generate a design image using OpenRouter's image generation models.
+    Returns the image URL or base64 data.
+    """
     headers = {
         "Authorization": f"Bearer {api_key}",
         "HTTP-Referer": "https://codeagent.app",
         "Content-Type": "application/json"
     }
     
-    messages = [{
-        "role": "user",
-        "content": [
-            {"type": "text", "text": prompt},
-            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
-        ]
-    }]
+    # Design-specific prompt
+    design_prompt = f"""Create a clean, modern UI/UX design mockup for: {prompt}
+
+Style: Clean web design, modern interface, professional look.
+Show: The complete UI layout as it would appear in a browser.
+Format: Flat design, clear elements, readable text."""
+    
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": design_prompt}],
+        "modalities": ["image", "text"],  # Enable image generation
+        "max_tokens": 1000
+    }
+    
+    logger.info(f"[Designer] Generating image with {model}...")
+    
+    async with httpx.AsyncClient(timeout=180.0) as http:
+        response = await http.post(
+            OPENROUTER_API_URL,
+            headers=headers,
+            json=payload
+        )
+        response.raise_for_status()
+        data = response.json()
+        
+        # Parse response - may contain image URL or inline image
+        content = data["choices"][0]["message"]["content"]
+        image_url = None
+        
+        # Check if content contains image parts
+        if isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict):
+                    if part.get("type") == "image_url":
+                        image_url = part.get("image_url", {}).get("url")
+                    elif part.get("type") == "image":
+                        # Base64 image
+                        image_url = f"data:image/png;base64,{part.get('data', '')}"
+        elif isinstance(content, str):
+            # Check for markdown image or URL
+            url_match = re.search(r'!\[.*?\]\((https?://[^)]+)\)', content)
+            if url_match:
+                image_url = url_match.group(1)
+            # Check for inline base64
+            base64_match = re.search(r'data:image/[^;]+;base64,([A-Za-z0-9+/=]+)', content)
+            if base64_match:
+                image_url = base64_match.group(0)
+        
+        # Also check for 'inline_data' in response structure
+        message = data["choices"][0]["message"]
+        if "parts" in message:
+            for part in message["parts"]:
+                if "inline_data" in part:
+                    mime = part["inline_data"].get("mime_type", "image/png")
+                    b64 = part["inline_data"].get("data", "")
+                    image_url = f"data:{mime};base64,{b64}"
+        
+        text_content = content if isinstance(content, str) else "Design generated"
+        
+        return {
+            "model": model,
+            "content": text_content,
+            "image_url": image_url,
+            "metadata": {"phase": "designer", "has_image": image_url is not None}
+        }
+
+async def call_vision_model(model: str, prompt: str, image_url: str, api_key: str) -> Dict:
+    """Call a vision model with an image (URL or base64)."""
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "HTTP-Referer": "https://codeagent.app",
+        "Content-Type": "application/json"
+    }
+    
+    # Build message with image
+    content = [
+        {"type": "text", "text": prompt}
+    ]
+    
+    if image_url.startswith("data:"):
+        content.append({"type": "image_url", "image_url": {"url": image_url}})
+    else:
+        content.append({"type": "image_url", "image_url": {"url": image_url}})
+    
+    messages = [{"role": "user", "content": content}]
     
     async with httpx.AsyncClient(timeout=120.0) as http:
         response = await http.post(
             OPENROUTER_API_URL,
             headers=headers,
-            json={"model": model, "messages": messages, "max_tokens": 1500}
+            json={"model": model, "messages": messages, "max_tokens": 4000}
         )
         response.raise_for_status()
         data = response.json()
         return {
             "model": model,
             "content": data["choices"][0]["message"]["content"],
-            "metadata": {"usage": data.get("usage", {}), "phase": "eyes"}
+            "metadata": {"usage": data.get("usage", {})}
         }
 
 # ===== Prompts =====
@@ -145,25 +229,15 @@ Respond with:
 
 Keep it to 5-8 bullet points max. Be specific and actionable."""
 
-DESIGNER_PROMPT = """You are a UI/UX designer. Based on the plan, describe the visual design:
+CODER_WITH_DESIGN_PROMPT = """You are an expert frontend developer. You have a DESIGN IMAGE to follow.
 
-1. Color scheme (specific hex codes)
-2. Layout composition
-3. Typography
-4. Visual effects/animations
-5. Key UI elements
+CRITICAL: Replicate the design EXACTLY as shown in the image!
+- Match colors precisely
+- Match layout and spacing
+- Match fonts and sizes
+- Match all visual elements
 
-Be specific with colors and dimensions. Keep it brief (5-6 points)."""
-
-CODER_PROMPT = """You are an expert frontend developer. Create WORKING, PIXEL-PERFECT code.
-
-CRITICAL RULES:
-1. Use PROPER CSS positioning:
-   - Flexbox/Grid for layouts: display: flex; justify-content: center; align-items: center;
-   - For clocks: transform-origin: bottom center; position: absolute;
-   - Always set explicit width/height
-
-2. Code format - USE EXACT FILENAMES:
+Code format:
 ```index.html
 <complete HTML>
 ```
@@ -174,39 +248,52 @@ CRITICAL RULES:
 <complete JS>
 ```
 
-3. Make it visually polished - good colors, smooth animations, proper spacing.
-4. Test logic mentally - will this actually work?"""
+Make it pixel-perfect to the design!"""
 
-EYES_PROMPT = """You are a visual QA expert reviewing a screenshot of a web application.
+CODER_PROMPT = """You are an expert frontend developer. Create WORKING, PIXEL-PERFECT code.
 
-Check for these issues:
-1. LAYOUT: Are elements properly aligned and centered?
-2. OVERLAP: Do any elements overlap incorrectly?
-3. VISIBILITY: Is everything visible and readable?
-4. PROPORTIONS: Are sizes and spacing correct?
-5. FUNCTIONALITY: Does it look like it would work?
+RULES:
+1. Use PROPER CSS positioning (flexbox/grid for layouts)
+2. For clocks: transform-origin: bottom center; position: absolute;
+3. Always set explicit width/height
+
+Code format:
+```index.html
+<complete HTML>
+```
+```style.css
+<complete CSS>
+```
+```script.js
+<complete JS>
+```"""
+
+EYES_PROMPT = """You are a visual QA expert. Compare the screenshot with what was requested.
+
+Check:
+1. LAYOUT: Are elements properly aligned?
+2. OVERLAP: Any elements overlapping incorrectly?
+3. COLORS: Do colors match the design?
+4. SPACING: Is spacing correct?
 
 Respond with:
-- "✅ Looks good!" if no visual issues
-- "👁️ Visual issues found:" + specific problems + suggestions to fix
+- "✅ Looks good!" if matches design
+- "👁️ Issues found:" + specific problems"""
 
-Be specific about what's wrong and where."""
-
-DEBUGGER_PROMPT = """You are a senior code reviewer. Check for:
-
-1. CSS BUGS: Wrong positioning, missing transform-origin, bad z-index
-2. JS BUGS: Logic errors, wrong calculations, missing event handlers
+DEBUGGER_PROMPT = """You are a code reviewer. Check for:
+1. CSS BUGS: Wrong positioning, missing properties
+2. JS BUGS: Logic errors, wrong calculations
 3. HTML BUGS: Missing elements, wrong structure
 
 Respond with:
-- "✅ Code looks correct" if no issues
-- "🔧 Issues found:" + specific bugs + "Fix:" + corrected code snippets"""
+- "✅ Code correct" if no issues
+- "🔧 Issues:" + bugs + "Fix:" + corrected code"""
 
 # ===== API Routes =====
 
 @api_router.get("/")
 async def root():
-    return {"message": "CodeAgent API"}
+    return {"message": "CodeAgent API with Image Generation"}
 
 @api_router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -214,33 +301,28 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=400, detail="API key required")
     
     responses = []
-    
-    # Extract roles from request
     roles = request.roles or {}
     
-    # Get enabled roles with models
     planner = roles.get('planner', {})
     designer = roles.get('designer', {})
     coder = roles.get('coder', {})
     eyes = roles.get('eyes', {})
     debugger = roles.get('debugger', {})
     
-    # Fallback to legacy models if no roles
-    if not any([planner.get('model'), coder.get('model')]):
-        if request.models:
-            coder = {'model': request.models[0], 'enabled': True}
-            if len(request.models) > 1:
-                debugger = {'model': request.models[1], 'enabled': True}
+    # Fallback to legacy models
+    if not coder.get('model') and request.models:
+        coder = {'model': request.models[0], 'enabled': True}
+        if len(request.models) > 1:
+            debugger = {'model': request.models[1], 'enabled': True}
     
-    # Must have at least coder
     if not coder.get('model'):
-        raise HTTPException(status_code=400, detail="At least Coder role must have a model assigned")
+        raise HTTPException(status_code=400, detail="Coder role must have a model")
     
     is_new = len(request.conversation_history) == 0
+    design_image_url = None
     
     if is_new:
         plan_text = ""
-        design_text = ""
         
         # === STEP 1: PLANNER ===
         if planner.get('enabled') and planner.get('model'):
@@ -249,8 +331,7 @@ async def chat(request: ChatRequest):
                 result = await call_model(
                     planner['model'],
                     [{"role": "system", "content": PLANNER_PROMPT}, {"role": "user", "content": request.message}],
-                    request.api_key,
-                    max_tokens=800
+                    request.api_key, max_tokens=800
                 )
                 plan_text = result['content']
                 responses.append(ModelResponse(
@@ -261,63 +342,109 @@ async def chat(request: ChatRequest):
             except Exception as e:
                 logger.error(f"Planner error: {e}")
         
-        # === STEP 2: DESIGNER (optional) ===
+        # === STEP 2: DESIGNER (Image Generation) ===
         if designer.get('enabled') and designer.get('model'):
-            logger.info(f"[🎨 Designer] {get_name(designer['model'])}")
+            logger.info(f"[🎨 Designer] {get_name(designer['model'])} - generating image...")
             try:
-                design_prompt = f"{DESIGNER_PROMPT}\n\nTask: {request.message}"
-                if plan_text:
-                    design_prompt += f"\n\nPlan:\n{plan_text}"
-                
-                result = await call_model(
+                result = await generate_design_image(
                     designer['model'],
-                    [{"role": "user", "content": design_prompt}],
-                    request.api_key,
-                    max_tokens=600
+                    request.message,
+                    request.api_key
                 )
-                design_text = result['content']
+                design_image_url = result.get('image_url')
+                
                 responses.append(ModelResponse(
                     model=designer['model'],
-                    content=design_text,
-                    metadata={"phase": "designer", "role": "Designer"}
+                    content=result['content'] + ("\n\n🖼️ Design image generated!" if design_image_url else ""),
+                    image_url=design_image_url,
+                    metadata={"phase": "designer", "role": "Designer", "has_image": bool(design_image_url)}
                 ))
+                
+                if design_image_url:
+                    logger.info(f"[🎨 Designer] Image generated successfully!")
+                else:
+                    logger.warning(f"[🎨 Designer] No image in response")
+                    
             except Exception as e:
                 logger.error(f"Designer error: {e}")
+                responses.append(ModelResponse(
+                    model=designer['model'],
+                    content=f"⚠️ Could not generate design image: {str(e)[:100]}",
+                    metadata={"phase": "designer", "error": str(e)}
+                ))
         
         # === STEP 3: CODER ===
         logger.info(f"[💻 Coder] {get_name(coder['model'])}")
-        coder_prompt = f"{CODER_PROMPT}\n\nBuild this: {request.message}"
-        if plan_text:
-            coder_prompt += f"\n\nPlan:\n{plan_text}"
-        if design_text:
-            coder_prompt += f"\n\nDesign specs:\n{design_text}"
         
-        try:
-            result = await call_model(
-                coder['model'],
-                [{"role": "system", "content": CODER_PROMPT}, {"role": "user", "content": coder_prompt}],
-                request.api_key,
-                max_tokens=4000
-            )
-            code_content = result['content']
-            responses.append(ModelResponse(
-                model=coder['model'],
-                content=code_content,
-                metadata={"phase": "coder", "role": "Coder"}
-            ))
-        except Exception as e:
-            return ChatResponse(responses=[ModelResponse(
-                model=coder['model'], content=f"❌ Coder error: {str(e)}", metadata={}
-            )])
-        
-        # === STEP 4: EYES - Visual Review (if screenshot provided) ===
-        if eyes.get('enabled') and eyes.get('model') and request.screenshot_base64:
-            logger.info(f"[👁️ Eyes] {get_name(eyes['model'])} reviewing screenshot")
+        if design_image_url:
+            # Coder can SEE the design image!
+            logger.info(f"[💻 Coder] Using design image as reference...")
             try:
+                coder_prompt = f"{CODER_WITH_DESIGN_PROMPT}\n\nBuild this: {request.message}"
+                if plan_text:
+                    coder_prompt += f"\n\nPlan:\n{plan_text}"
+                
+                result = await call_vision_model(
+                    coder['model'],
+                    coder_prompt,
+                    design_image_url,
+                    request.api_key
+                )
+                code_content = result['content']
+                responses.append(ModelResponse(
+                    model=coder['model'],
+                    content=code_content,
+                    metadata={"phase": "coder", "role": "Coder", "used_design": True}
+                ))
+            except Exception as e:
+                logger.error(f"Coder with vision error: {e}, falling back to text")
+                # Fallback to text-only
+                result = await call_model(
+                    coder['model'],
+                    [{"role": "system", "content": CODER_PROMPT}, {"role": "user", "content": request.message}],
+                    request.api_key, max_tokens=4000
+                )
+                code_content = result['content']
+                responses.append(ModelResponse(
+                    model=coder['model'],
+                    content=code_content,
+                    metadata={"phase": "coder", "role": "Coder"}
+                ))
+        else:
+            # No design image - text only
+            coder_prompt = f"{CODER_PROMPT}\n\nBuild this: {request.message}"
+            if plan_text:
+                coder_prompt += f"\n\nPlan:\n{plan_text}"
+            
+            try:
+                result = await call_model(
+                    coder['model'],
+                    [{"role": "system", "content": CODER_PROMPT}, {"role": "user", "content": coder_prompt}],
+                    request.api_key, max_tokens=4000
+                )
+                code_content = result['content']
+                responses.append(ModelResponse(
+                    model=coder['model'],
+                    content=code_content,
+                    metadata={"phase": "coder", "role": "Coder"}
+                ))
+            except Exception as e:
+                return ChatResponse(responses=[ModelResponse(
+                    model=coder['model'], content=f"❌ Error: {str(e)}", metadata={}
+                )])
+        
+        # === STEP 4: EYES (Visual Review) ===
+        if eyes.get('enabled') and eyes.get('model') and request.screenshot_base64:
+            logger.info(f"[👁️ Eyes] {get_name(eyes['model'])} reviewing...")
+            try:
+                eyes_prompt = EYES_PROMPT + f"\n\nThis should be: {request.message}"
+                if design_image_url:
+                    eyes_prompt += "\n\nCompare with the original design image."
+                
                 result = await call_vision_model(
                     eyes['model'],
-                    EYES_PROMPT + f"\n\nThis should be: {request.message}",
-                    request.screenshot_base64,
+                    eyes_prompt,
+                    f"data:image/png;base64,{request.screenshot_base64}",
                     request.api_key
                 )
                 responses.append(ModelResponse(
@@ -332,13 +459,12 @@ async def chat(request: ChatRequest):
         if debugger.get('enabled') and debugger.get('model'):
             logger.info(f"[🔧 Debugger] {get_name(debugger['model'])}")
             try:
-                debug_prompt = f"{DEBUGGER_PROMPT}\n\nTask: {request.message}\n\nCode to review:\n{code_content[:3000]}"
+                debug_prompt = f"{DEBUGGER_PROMPT}\n\nTask: {request.message}\n\nCode:\n{code_content[:3000]}"
                 
                 result = await call_model(
                     debugger['model'],
                     [{"role": "user", "content": debug_prompt}],
-                    request.api_key,
-                    max_tokens=1500
+                    request.api_key, max_tokens=1500
                 )
                 debug_result = result['content']
                 responses.append(ModelResponse(
@@ -347,32 +473,19 @@ async def chat(request: ChatRequest):
                     metadata={"phase": "debugger", "role": "Debugger"}
                 ))
                 
-                # If debugger found issues, have coder fix them
-                if '🔧' in debug_result or 'issue' in debug_result.lower() or 'bug' in debug_result.lower():
+                # Fix if issues found
+                if '🔧' in debug_result or 'issue' in debug_result.lower():
                     logger.info(f"[💻 Coder] Fixing issues...")
-                    fix_prompt = f"""The debugger found issues:
-{debug_result}
-
-Fix these issues and provide the COMPLETE corrected code.
-```index.html
-...
-```
-```style.css
-...
-```
-```script.js
-...
-```"""
+                    fix_prompt = f"Fix these issues:\n{debug_result}\n\nProvide COMPLETE corrected code."
                     try:
                         fix_result = await call_model(
                             coder['model'],
                             [{"role": "assistant", "content": code_content}, {"role": "user", "content": fix_prompt}],
-                            request.api_key,
-                            max_tokens=4000
+                            request.api_key, max_tokens=4000
                         )
                         responses.append(ModelResponse(
                             model=coder['model'],
-                            content=f"🔧 Fixed version:\n\n{fix_result['content']}",
+                            content=f"🔧 Fixed:\n\n{fix_result['content']}",
                             metadata={"phase": "fix", "role": "Coder"}
                         ))
                     except Exception as e:
@@ -382,7 +495,7 @@ Fix these issues and provide the COMPLETE corrected code.
                 logger.error(f"Debugger error: {e}")
     
     else:
-        # Follow-up - just use coder
+        # Follow-up
         messages = [{"role": "system", "content": CODER_PROMPT}]
         for msg in request.conversation_history:
             messages.append({"role": msg.role, "content": msg.content})
@@ -392,23 +505,16 @@ Fix these issues and provide the COMPLETE corrected code.
             result = await call_model(coder['model'], messages, request.api_key)
             responses.append(ModelResponse(**result))
         except Exception as e:
-            responses.append(ModelResponse(
-                model=coder['model'], content=f"❌ Error: {str(e)}", metadata={}
-            ))
+            responses.append(ModelResponse(model=coder['model'], content=f"❌ Error: {str(e)}", metadata={}))
     
     return ChatResponse(responses=responses)
 
 
-@api_router.post("/review-screenshot")
-async def review_screenshot(model: str, api_key: str, screenshot_base64: str, task_description: str = ""):
-    """Separate endpoint to review a screenshot with vision model."""
+@api_router.post("/generate-design")
+async def generate_design(prompt: str, model: str, api_key: str):
+    """Standalone endpoint to generate a design image."""
     try:
-        result = await call_vision_model(
-            model,
-            EYES_PROMPT + (f"\n\nThis should be: {task_description}" if task_description else ""),
-            screenshot_base64,
-            api_key
-        )
+        result = await generate_design_image(model, prompt, api_key)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
