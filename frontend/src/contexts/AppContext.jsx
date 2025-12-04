@@ -92,7 +92,12 @@ export const AppProvider = ({ children }) => {
   
   // Message functions
   const addMessage = (message) => {
-    setMessages(prev => [...prev, { ...message, id: Date.now(), timestamp: new Date() }]);
+    setMessages(prev => [...prev, { 
+      ...message, 
+      id: Date.now(), 
+      timestamp: new Date(),
+      image_url: message.image_url || null  // Support for designer images
+    }]);
   };
   
   // File functions
