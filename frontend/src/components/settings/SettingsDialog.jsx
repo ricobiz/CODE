@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,9 +8,9 @@ import {
 } from '../ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ApiKeySettings } from './ApiKeySettings';
-import { ModelSelector } from './ModelSelector';
+import { RoleSettings } from './RoleSettings';
 import { IntegrationSettings } from './IntegrationSettings';
-import { Settings, Key, Bot, Plug } from 'lucide-react';
+import { Settings, Key, Users, Plug } from 'lucide-react';
 
 export const SettingsDialog = ({ open, onOpenChange }) => {
   return (
@@ -22,19 +22,19 @@ export const SettingsDialog = ({ open, onOpenChange }) => {
             Settings
           </DialogTitle>
           <DialogDescription>
-            Configure your OpenRouter API key, select models, and manage integrations
+            Configure API key and assign models to agent roles
           </DialogDescription>
         </DialogHeader>
         
-        <Tabs defaultValue="api" className="mt-4">
+        <Tabs defaultValue="roles" className="mt-4">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="api" className="gap-2">
               <Key className="w-4 h-4" />
               API Key
             </TabsTrigger>
-            <TabsTrigger value="models" className="gap-2">
-              <Bot className="w-4 h-4" />
-              Models
+            <TabsTrigger value="roles" className="gap-2">
+              <Users className="w-4 h-4" />
+              Team Roles
             </TabsTrigger>
             <TabsTrigger value="integrations" className="gap-2">
               <Plug className="w-4 h-4" />
@@ -46,8 +46,8 @@ export const SettingsDialog = ({ open, onOpenChange }) => {
             <ApiKeySettings />
           </TabsContent>
           
-          <TabsContent value="models" className="mt-6">
-            <ModelSelector />
+          <TabsContent value="roles" className="mt-6">
+            <RoleSettings />
           </TabsContent>
           
           <TabsContent value="integrations" className="mt-6">
