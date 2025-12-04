@@ -38,7 +38,7 @@ export const reviewScreenshot = async (model, apiKey, screenshotBase64, taskDesc
 export const fetchModels = async (apiKey) => {
   try {
     const response = await axios.get(`${API}/models`, {
-      headers: { 'x-api-key': apiKey }
+      params: { x_api_key: apiKey }
     });
     return response.data;
   } catch (error) {
