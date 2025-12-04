@@ -1,97 +1,11 @@
-import { useState, useCallback, useEffect } from 'react';
-import { sendChatMessage, getConsensusStatus } from '../utils/api';
+import { useState, useCallback } from 'react';
+import { sendChatMessage } from '../utils/api';
 import { useApp } from '../contexts/AppContext';
-import { useConsensus } from '../contexts/ConsensusContext';
 import { toast } from 'sonner';
 
 export const useOpenRouter = () => {
-  const { apiKey, selectedModels, messages, addMessage, setIsGenerating, updateFile } = useApp();
-  const { 
-    isConsensusMode, 
-    addConsensusMessage, 
-    setProjectPlanFromConsensus,
-    updateProgress,
-    setCurrentPhase
-  } = useConsensus();
-  
+  const { apiKey, selectedModels, messages, addMessage, setIsGenerating, updateFile, refreshPreview } = useApp();
   const [error, setError] = useState(null);
-  const [pollingInterval, setPollingInterval] = useState(null);
-  
-  // Poll consensus status
-  const pollConsensusStatus = useCallback(async (sessionId) => {
-    try {
-      const status = await getConsensusStatus(sessionId);
-      
-      // Update consensus messages
-      if (status.consensus_messages) {
-        status.consensus_messages.forEach(msg => {
-          addConsensusMessage(msg);
-        });
-      }
-      
-      // Update plan if available
-      if (status.plan && !status.plan.updated) {
-        setProjectPlanFromConsensus({
-          ...status.plan,
-          updated: true
-        });
-        toast.success('📋 Project plan created!');
-      }
-      
-      // Update phase
-      if (status.phase) {
-        setCurrentPhase(status.phase);
-      }
-      
-      // Update files as they are generated
-      if (status.files && Object.keys(status.files).length > 0) {
-        Object.entries(status.files).forEach(([filename, content]) => {
-          updateFile(filename, content);
-        });
-      }
-      
-      // Check if completed
-      if (status.status === 'completed') {
-        toast.success('✅ Consensus flow completed!');
-        setIsGenerating(false);
-        return true; // Stop polling
-      }
-      
-      if (status.status === 'failed') {
-        toast.error('❌ Consensus flow failed');
-        setIsGenerating(false);
-        return true; // Stop polling
-      }
-      
-      return false; // Continue polling
-      
-    } catch (err) {
-      console.error('Polling error:', err);
-      return false;
-    }
-  }, [addConsensusMessage, setProjectPlanFromConsensus, setCurrentPhase, updateFile, setIsGenerating]);
-  
-  // Start polling
-  const startPolling = useCallback((sessionId) => {
-    const interval = setInterval(async () => {
-      const shouldStop = await pollConsensusStatus(sessionId);
-      if (shouldStop) {
-        clearInterval(interval);
-        setPollingInterval(null);
-      }
-    }, 2000); // Poll every 2 seconds
-    
-    setPollingInterval(interval);
-  }, [pollConsensusStatus]);
-  
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-      }
-    };
-  }, [pollingInterval]);
   
   const sendMessage = useCallback(async (userMessage) => {
     if (!apiKey) {
@@ -100,7 +14,7 @@ export const useOpenRouter = () => {
     }
     
     if (selectedModels.length === 0) {
-      toast.error('Please select at least one model');
+      toast.error('Please select at least one model in settings');
       return;
     }
     
@@ -114,52 +28,44 @@ export const useOpenRouter = () => {
         content: userMessage
       });
       
-      // Prepare conversation history
+      // Prepare conversation history with model info
       const conversationHistory = messages.map(m => ({
         role: m.role,
-        content: m.content
+        content: m.content,
+        model: m.model || null
       }));
+      
+      // Show mode info
+      if (selectedModels.length >= 2) {
+        toast.info(`Team mode: ${selectedModels.length} models collaborating`);
+      }
       
       // Send to backend
       const response = await sendChatMessage(
         userMessage,
         selectedModels,
         apiKey,
-        conversationHistory,
-        isConsensusMode // Pass consensus mode flag
+        conversationHistory
       );
       
-      // Check if consensus mode was activated
-      if (response.consensus_data && response.consensus_data.session_id) {
-        const sessionId = response.consensus_data.session_id;
-        
-        // Add system message
-        addMessage({
-          role: 'assistant',
-          content: response.responses[0].content,
-          model: 'system'
+      // Add all model responses
+      if (response.responses) {
+        response.responses.forEach(modelResponse => {
+          addMessage({
+            role: 'assistant',
+            content: modelResponse.content,
+            model: modelResponse.model,
+            metadata: modelResponse.metadata
+          });
         });
         
-        // Start polling for updates
-        startPolling(sessionId);
-        
-        toast.success('🤝 Multi-agent consensus started!');
-        
-      } else {
-        // Regular mode - add responses
-        if (response.responses) {
-          response.responses.forEach(modelResponse => {
-            addMessage({
-              role: 'assistant',
-              content: modelResponse.content,
-              model: modelResponse.model,
-              metadata: modelResponse.metadata
-            });
-          });
+        // Show completion toast for team mode
+        if (selectedModels.length >= 2 && response.responses.length > 1) {
+          toast.success('Team collaboration complete!');
         }
-        setIsGenerating(false);
       }
       
+      setIsGenerating(false);
       return response;
       
     } catch (err) {
@@ -170,7 +76,7 @@ export const useOpenRouter = () => {
       setIsGenerating(false);
       throw err;
     }
-  }, [apiKey, selectedModels, messages, addMessage, setIsGenerating, isConsensusMode, startPolling]);
+  }, [apiKey, selectedModels, messages, addMessage, setIsGenerating]);
   
   return {
     sendMessage,
