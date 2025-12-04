@@ -14,8 +14,6 @@ import httpx
 import json
 import asyncio
 
-from consensus_engine import ConsensusEngine
-
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -35,21 +33,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Store active consensus sessions
-active_sessions = {}
-
 # ===== Models =====
 
 class Message(BaseModel):
     role: str
     content: str
+    model: Optional[str] = None  # Which model sent this message
 
 class ChatRequest(BaseModel):
     message: str
     models: List[str]
     api_key: str
     conversation_history: Optional[List[Message]] = []
-    consensus_mode: Optional[bool] = False
 
 class ModelResponse(BaseModel):
     model: str
@@ -58,7 +53,6 @@ class ModelResponse(BaseModel):
 
 class ChatResponse(BaseModel):
     responses: List[ModelResponse]
-    consensus_data: Optional[Dict[str, Any]] = None
 
 class Project(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -71,11 +65,28 @@ class Project(BaseModel):
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
+def get_model_short_name(model: str) -> str:
+    """Get a short friendly name for a model."""
+    name = model.split('/')[-1]
+    short_names = {
+        'claude-3.5-sonnet': 'Claude Sonnet',
+        'claude-3-haiku': 'Claude Haiku', 
+        'claude-haiku-4.5': 'Claude Haiku',
+        'gpt-4o': 'GPT-4o',
+        'gpt-4o-mini': 'GPT-4o Mini',
+        'gpt-4-turbo': 'GPT-4 Turbo',
+        'gemini-pro-1.5': 'Gemini Pro',
+        'gemini-flash-1.5': 'Gemini Flash',
+        'gemma-3-12b-it:free': 'Gemma 3',
+    }
+    return short_names.get(name, name[:25])
+
 async def call_openrouter_model(
     model: str,
     messages: List[Dict[str, str]],
     api_key: str,
-    max_tokens: int = 4000
+    max_tokens: int = 4000,
+    timeout: float = 120.0
 ) -> Dict[str, Any]:
     """
     Call a single model via OpenRouter API
@@ -94,7 +105,7 @@ async def call_openrouter_model(
     }
     
     try:
-        async with httpx.AsyncClient(timeout=180.0) as http_client:
+        async with httpx.AsyncClient(timeout=timeout) as http_client:
             response = await http_client.post(
                 OPENROUTER_API_URL,
                 headers=headers,
@@ -131,10 +142,11 @@ async def root():
     return {"message": "CodeAgent API - Multi-Model AI Coding Platform"}
 
 @api_router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
+async def chat(request: ChatRequest):
     """
-    Send a message to multiple AI models.
-    If consensus_mode=True, runs full consensus flow in background.
+    Unified chat endpoint.
+    - 1 model: Simple code generation
+    - 2+ models: Collaborative flow (discuss -> plan -> code -> review)
     """
     if not request.api_key:
         raise HTTPException(status_code=400, detail="API key is required")
@@ -142,218 +154,314 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     if not request.models:
         raise HTTPException(status_code=400, detail="At least one model must be selected")
     
-    # Consensus mode - full multi-phase flow
-    if request.consensus_mode and len(request.models) >= 2:
-        session_id = str(uuid.uuid4())
-        
-        # Quick ping check before starting
-        logger.info(f"Consensus mode: Checking models {request.models}")
-        
-        # Create consensus engine
-        engine = ConsensusEngine(
-            models=request.models,
-            api_key=request.api_key,
-            openrouter_caller=call_openrouter_model
-        )
-        
-        # Store session
-        active_sessions[session_id] = {
-            'engine': engine,
-            'status': 'running',
-            'started_at': datetime.utcnow()
-        }
-        
-        # Run consensus flow in background
-        background_tasks.add_task(
-            run_consensus_background,
-            session_id,
-            engine,
-            request.message,
-            [msg.dict() for msg in request.conversation_history]
-        )
-        
-        model_names = [m.split('/')[-1] for m in request.models]
-        
-        return ChatResponse(
-            responses=[ModelResponse(
-                model="system",
-                content=f"🚀 Consensus mode activated!\n\n👥 Team: {model_names[0]} & {model_names[1]}\n📋 Starting planning phase...",
-                metadata={"session_id": session_id}
-            )],
-            consensus_data={
-                "session_id": session_id,
-                "mode": "consensus",
-                "phase": "planning"
-            }
-        )
+    # Build conversation history with model labels
+    def format_history(history: List[Message]) -> List[Dict]:
+        formatted = []
+        for msg in history:
+            if msg.role == 'user':
+                formatted.append({"role": "user", "content": msg.content})
+            elif msg.role == 'assistant' and msg.model:
+                # Label which model said what
+                model_name = get_model_short_name(msg.model)
+                formatted.append({
+                    "role": "assistant", 
+                    "content": f"[{model_name}]: {msg.content}"
+                })
+            else:
+                formatted.append({"role": msg.role, "content": msg.content})
+        return formatted
     
-    # Regular mode - each model responds independently (group chat style)
-    messages = [
-        {"role": msg.role, "content": msg.content}
-        for msg in request.conversation_history
-    ]
-    messages.append({"role": "user", "content": request.message})
+    history = format_history(request.conversation_history)
     
-    # Add system message for code generation
-    code_system_prompt = """You are an expert web developer AI assistant in a code generation IDE.
+    # === SINGLE MODEL MODE ===
+    if len(request.models) == 1:
+        model = request.models[0]
+        model_name = get_model_short_name(model)
+        
+        system_prompt = f"""You are {model_name}, an expert web developer AI.
 Your job is to CREATE working code for what the user asks.
 
-IMPORTANT RULES:
+RULES:
 1. ALWAYS generate actual code, not just describe it
-2. Use code blocks with filenames like this:
+2. Use code blocks with filenames:
 ```index.html
-<your HTML code>
+<HTML code>
 ```
-```style.css
-<your CSS code>
+```style.css  
+<CSS code>
 ```
 ```script.js
-<your JavaScript code>
+<JavaScript code>
 ```
 3. Create complete, working implementations
-4. Keep responses concise - mainly code, minimal explanations
-5. The code will be automatically applied to a live preview
+4. Keep explanations minimal - focus on code
+5. The code will be automatically applied to a live preview"""
 
-When user asks for something (like "make a clock"), generate the actual HTML/CSS/JS code immediately."""
-
-    if len(request.models) > 1:
-        model_names = [m.split('/')[-1] for m in request.models]
-        system_msg = {
-            "role": "system",
-            "content": code_system_prompt + f"\n\nYou are in a group chat with other AI agents ({', '.join(model_names)}). Each of you should provide your own implementation."
-        }
-    else:
-        system_msg = {
-            "role": "system",
-            "content": code_system_prompt
-        }
-    messages.insert(0, system_msg)
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(history)
+        messages.append({"role": "user", "content": request.message})
+        
+        try:
+            result = await call_openrouter_model(
+                model=model,
+                messages=messages,
+                api_key=request.api_key
+            )
+            return ChatResponse(responses=[ModelResponse(**result)])
+        except Exception as e:
+            return ChatResponse(responses=[ModelResponse(
+                model=model,
+                content=f"❌ Error: {str(e)}",
+                metadata={"error": str(e)}
+            )])
+    
+    # === MULTI-MODEL COLLABORATIVE MODE ===
+    model1 = request.models[0]
+    model2 = request.models[1] if len(request.models) > 1 else request.models[0]
+    name1 = get_model_short_name(model1)
+    name2 = get_model_short_name(model2)
     
     responses = []
     
-    # Call all models in parallel (not sequential) for group chat feel
-    for idx, model in enumerate(request.models):
+    # Check if this is the START of a new task or CONTINUATION
+    is_new_task = len(request.conversation_history) == 0
+    
+    if is_new_task:
+        # === PHASE 1: DISCUSSION & PLANNING ===
+        # Model 1 proposes approach
+        system1 = f"""You are {name1}, Lead Developer in a team with {name2}.
+You're collaborating to build what the user requests.
+
+Current phase: PLANNING
+Your role: Propose the technical approach.
+
+Respond with:
+1. Brief analysis of the task (1-2 sentences)
+2. Proposed tech approach (HTML/CSS/JS structure)
+3. Key features to implement
+
+Keep it concise (5-8 sentences max). {name2} will review your plan."""
+
+        messages1 = [
+            {"role": "system", "content": system1},
+            {"role": "user", "content": request.message}
+        ]
+        
         try:
-            # Each model gets the same context (no seeing other model responses yet)
-            model_messages = messages.copy()
-            
-            result = await call_openrouter_model(
-                model=model,
-                messages=model_messages,
-                api_key=request.api_key
+            result1 = await call_openrouter_model(
+                model=model1,
+                messages=messages1,
+                api_key=request.api_key,
+                max_tokens=800
             )
-            responses.append(ModelResponse(**result))
-            
-        except Exception as e:
-            logger.error(f"Failed to get response from {model}: {str(e)}")
             responses.append(ModelResponse(
-                model=model,
-                content=f"❌ Error: This model is currently unavailable. Try another model or check your API key.",
+                model=model1,
+                content=result1['content'],
+                metadata={"phase": "planning", "role": "architect"}
+            ))
+        except Exception as e:
+            responses.append(ModelResponse(
+                model=model1,
+                content=f"❌ {name1} error: {str(e)}",
+                metadata={"error": str(e)}
+            ))
+            return ChatResponse(responses=responses)
+        
+        # Model 2 reviews and agrees
+        system2 = f"""You are {name2}, Senior Reviewer in a team with {name1}.
+
+{name1} proposed this plan:
+\"{result1['content']}\"
+
+Your role: Briefly review and confirm.
+Respond with:
+1. Agreement or ONE key improvement (1-2 sentences)
+2. Say "Let's build it!" or similar to signal you're ready
+
+Keep it very short (2-3 sentences max)."""
+
+        messages2 = [
+            {"role": "system", "content": system2},
+            {"role": "user", "content": request.message}
+        ]
+        
+        try:
+            result2 = await call_openrouter_model(
+                model=model2,
+                messages=messages2,
+                api_key=request.api_key,
+                max_tokens=400
+            )
+            responses.append(ModelResponse(
+                model=model2,
+                content=result2['content'],
+                metadata={"phase": "planning", "role": "reviewer"}
+            ))
+        except Exception as e:
+            responses.append(ModelResponse(
+                model=model2,
+                content=f"❌ {name2} error: {str(e)}",
+                metadata={"error": str(e)}
+            ))
+            return ChatResponse(responses=responses)
+        
+        # === PHASE 2: IMPLEMENTATION ===
+        # Model 1 writes the code
+        system_code = f"""You are {name1}, Lead Developer.
+You discussed the plan with {name2} and agreed on the approach.
+
+Now IMPLEMENT the complete solution for: {request.message}
+
+IMPORTANT - Use this EXACT format:
+```index.html
+<complete HTML>
+```
+```style.css
+<complete CSS>
+```
+```script.js
+<complete JavaScript>
+```
+
+Create fully working, visually appealing code. Include all necessary files."""
+
+        messages_code = [
+            {"role": "system", "content": system_code},
+            {"role": "assistant", "content": f"Plan: {result1['content']}\n\nReview: {result2['content']}"},
+            {"role": "user", "content": f"Now write the complete code for: {request.message}"}
+        ]
+        
+        try:
+            result_code = await call_openrouter_model(
+                model=model1,
+                messages=messages_code,
+                api_key=request.api_key,
+                max_tokens=4000
+            )
+            responses.append(ModelResponse(
+                model=model1,
+                content=result_code['content'],
+                metadata={"phase": "implementation", "role": "coder"}
+            ))
+        except Exception as e:
+            responses.append(ModelResponse(
+                model=model1,
+                content=f"❌ Code generation error: {str(e)}",
+                metadata={"error": str(e)}
+            ))
+            return ChatResponse(responses=responses)
+        
+        # === PHASE 3: REVIEW ===
+        # Model 2 does quick review
+        system_review = f"""You are {name2}, Code Reviewer.
+{name1} wrote this code:
+
+{result_code['content'][:2000]}...
+
+Quickly check:
+1. Does it look complete?
+2. Any obvious bugs?
+
+Respond briefly (2-3 sentences):
+- If good: "✅ Code looks good! [brief comment]"
+- If issues: "⚠️ Found issue: [what's wrong]" """
+
+        messages_review = [
+            {"role": "system", "content": system_review},
+            {"role": "user", "content": "Review this code"}
+        ]
+        
+        try:
+            result_review = await call_openrouter_model(
+                model=model2,
+                messages=messages_review,
+                api_key=request.api_key,
+                max_tokens=300
+            )
+            responses.append(ModelResponse(
+                model=model2,
+                content=result_review['content'],
+                metadata={"phase": "review", "role": "reviewer"}
+            ))
+        except Exception as e:
+            responses.append(ModelResponse(
+                model=model2,
+                content=f"✅ Code submitted (review skipped)",
+                metadata={"error": str(e)}
+            ))
+    
+    else:
+        # === CONTINUATION - respond to follow-up ===
+        # Both models can respond to user's follow-up
+        system_cont = f"""You are part of a development team ({name1} and {name2}).
+The user has a follow-up request or question.
+
+If they want changes to code, provide updated code in the same format:
+```filename.ext
+<code>
+```
+
+If they have questions, answer helpfully."""
+        
+        messages_cont = [{"role": "system", "content": system_cont}]
+        messages_cont.extend(history)
+        messages_cont.append({"role": "user", "content": request.message})
+        
+        # Model 1 responds to follow-up
+        try:
+            result_cont = await call_openrouter_model(
+                model=model1,
+                messages=messages_cont,
+                api_key=request.api_key,
+                max_tokens=4000
+            )
+            responses.append(ModelResponse(**result_cont))
+        except Exception as e:
+            responses.append(ModelResponse(
+                model=model1,
+                content=f"❌ Error: {str(e)}",
                 metadata={"error": str(e)}
             ))
     
     return ChatResponse(responses=responses)
-
-async def run_consensus_background(session_id: str, engine: ConsensusEngine, task: str, history: List[Dict]):
-    """
-    Run consensus flow in background.
-    """
-    try:
-        result = await engine.run_consensus_flow(task, history)
-        
-        # Update session
-        active_sessions[session_id]['status'] = 'completed'
-        active_sessions[session_id]['result'] = result
-        active_sessions[session_id]['completed_at'] = datetime.utcnow()
-        
-        logger.info(f"Consensus session {session_id} completed")
-        
-    except Exception as e:
-        logger.error(f"Consensus session {session_id} failed: {str(e)}")
-        active_sessions[session_id]['status'] = 'failed'
-        active_sessions[session_id]['error'] = str(e)
-
-@api_router.get("/consensus/{session_id}")
-async def get_consensus_status(session_id: str):
-    """
-    Get status of consensus session.
-    """
-    if session_id not in active_sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    session = active_sessions[session_id]
-    engine = session['engine']
-    
-    return {
-        'session_id': session_id,
-        'status': session['status'],
-        'phase': engine.current_phase,
-        'consensus_messages': engine.consensus_messages,
-        'plan': engine.project_plan,
-        'files': engine.files_generated,
-        'started_at': session['started_at'].isoformat(),
-        'completed_at': session.get('completed_at', '').isoformat() if session.get('completed_at') else None
-    }
 
 
 @api_router.post("/ping-model")
 async def ping_model(model: str, api_key: str):
     """
     Ping a model to check if it's working.
-    Returns: working, limited, or unavailable
     """
     try:
-        test_message = [{"role": "user", "content": "Respond with 'OK' if you can read this."}]
+        test_message = [{"role": "user", "content": "Say OK"}]
         
         result = await call_openrouter_model(
             model=model,
             messages=test_message,
             api_key=api_key,
-            max_tokens=10
+            max_tokens=10,
+            timeout=30.0
         )
         
-        # Check response
-        content = result['content'].strip().upper()
-        if 'OK' in content or len(content) > 0:
-            return {
-                "status": "working",
-                "model": model,
-                "response": result['content']
-            }
-        else:
-            return {
-                "status": "limited",
-                "model": model,
-                "response": result['content']
-            }
+        return {
+            "status": "working",
+            "model": model,
+            "response": result['content'][:50]
+        }
             
     except Exception as e:
-        error_msg = str(e)
-        
-        # Check if model is unavailable or just rate limited
-        if 'rate' in error_msg.lower() or 'limit' in error_msg.lower():
-            return {
-                "status": "limited",
-                "model": model,
-                "error": "Rate limited or quota exceeded"
-            }
-        else:
-            return {
-                "status": "unavailable",
-                "model": model,
-                "error": error_msg
-            }
+        return {
+            "status": "unavailable",
+            "model": model,
+            "error": str(e)[:100]
+        }
 
 @api_router.get("/models")
 async def get_models(x_api_key: str = None):
     """
-    Proxy request to OpenRouter to get list of available models.
+    Get list of available models from OpenRouter.
     """
     if not x_api_key:
-        return {
-            "data": [],
-            "message": "API key required to fetch models"
-        }
+        return {"data": [], "message": "API key required"}
     
     try:
         async with httpx.AsyncClient(timeout=30.0) as http_client:
