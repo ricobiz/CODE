@@ -120,12 +120,23 @@ export const RoleSettings = () => {
         <p className="text-sm text-muted-foreground">
           Assign AI models to different roles. Enable only the roles you need.
         </p>
+        {models.length > 0 && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {models.length} models loaded from OpenRouter
+          </p>
+        )}
       </div>
       
       {loading ? (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="w-6 h-6 animate-spin" />
           <span className="ml-2">Loading models...</span>
+        </div>
+      ) : models.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
+          <p>No models loaded. Check your API key.</p>
+          <p className="text-xs mt-2">Models will appear after entering a valid OpenRouter API key.</p>
         </div>
       ) : (
         <div className="space-y-3">
