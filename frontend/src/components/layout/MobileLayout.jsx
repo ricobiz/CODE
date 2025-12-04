@@ -11,7 +11,6 @@ export const MobileLayout = () => {
     <div 
       className="flex flex-col bg-background"
       style={{ 
-        height: 'calc(100vh - 4rem)',
         height: 'calc(100dvh - 4rem)',
         minHeight: 0
       }}
