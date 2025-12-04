@@ -135,7 +135,12 @@ export const RoleSettings = () => {
                       <div>
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                           {role.emoji} {role.name}
-                          {(roleKey === 'eyes' || roleKey === 'designer') && (
+                          {roleKey === 'designer' && (
+                            <Badge variant="outline" className="text-xs border-pink-500/50 text-pink-500">
+                              Image Gen
+                            </Badge>
+                          )}
+                          {roleKey === 'eyes' && (
                             <Badge variant="outline" className="text-xs border-yellow-500/50 text-yellow-500">
                               Vision
                             </Badge>
