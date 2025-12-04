@@ -10,25 +10,33 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone
 import httpx
-import asyncio
+import base64
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ===== Models =====
+
+class RoleConfig(BaseModel):
+    model: Optional[str] = None
+    enabled: bool = True
+
+class RolesConfig(BaseModel):
+    planner: Optional[RoleConfig] = None
+    designer: Optional[RoleConfig] = None
+    coder: Optional[RoleConfig] = None
+    eyes: Optional[RoleConfig] = None
+    debugger: Optional[RoleConfig] = None
 
 class Message(BaseModel):
     role: str
@@ -37,9 +45,11 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    models: List[str]
+    models: List[str] = []  # Legacy support
+    roles: Optional[Dict[str, Any]] = None  # New roles config
     api_key: str
     conversation_history: Optional[List[Message]] = []
+    screenshot_base64: Optional[str] = None  # For vision review
 
 class ModelResponse(BaseModel):
     model: str
@@ -60,14 +70,15 @@ class Project(BaseModel):
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-def get_short_name(model: str) -> str:
+def get_name(model: str) -> str:
     name = model.split('/')[-1]
     names = {
         'claude-3.5-sonnet': 'Claude Sonnet',
-        'claude-3-haiku': 'Claude Haiku', 
-        'claude-haiku-4.5': 'Claude Haiku',
+        'claude-3-haiku': 'Claude Haiku',
         'gpt-4o': 'GPT-4o',
         'gpt-4o-mini': 'GPT-4o Mini',
+        'gemini-2.0-flash-exp:free': 'Gemini Flash',
+        'gemini-pro-vision': 'Gemini Vision',
     }
     return names.get(name, name[:20])
 
@@ -92,25 +103,67 @@ async def call_model(model: str, messages: List[Dict], api_key: str, max_tokens:
             "metadata": {"usage": data.get("usage", {})}
         }
 
-# ===== Качественные промпты =====
+async def call_vision_model(model: str, prompt: str, image_base64: str, api_key: str) -> Dict:
+    """Call a vision model with an image."""
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "HTTP-Referer": "https://codeagent.app",
+        "Content-Type": "application/json"
+    }
+    
+    messages = [{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
+        ]
+    }]
+    
+    async with httpx.AsyncClient(timeout=120.0) as http:
+        response = await http.post(
+            OPENROUTER_API_URL,
+            headers=headers,
+            json={"model": model, "messages": messages, "max_tokens": 1500}
+        )
+        response.raise_for_status()
+        data = response.json()
+        return {
+            "model": model,
+            "content": data["choices"][0]["message"]["content"],
+            "metadata": {"usage": data.get("usage", {}), "phase": "eyes"}
+        }
 
-CODE_EXPERT_PROMPT = """You are an expert frontend developer. Create WORKING, VISUALLY CORRECT code.
+# ===== Prompts =====
+
+PLANNER_PROMPT = """You are a senior software architect. Create a brief, clear plan for the task.
+
+Respond with:
+1. What we're building (1 sentence)
+2. HTML structure needed
+3. CSS approach (layout, colors, animations)
+4. JavaScript logic required
+
+Keep it to 5-8 bullet points max. Be specific and actionable."""
+
+DESIGNER_PROMPT = """You are a UI/UX designer. Based on the plan, describe the visual design:
+
+1. Color scheme (specific hex codes)
+2. Layout composition
+3. Typography
+4. Visual effects/animations
+5. Key UI elements
+
+Be specific with colors and dimensions. Keep it brief (5-6 points)."""
+
+CODER_PROMPT = """You are an expert frontend developer. Create WORKING, PIXEL-PERFECT code.
 
 CRITICAL RULES:
-1. Always use PROPER CSS positioning:
-   - Use flexbox or grid for centering: display: flex; justify-content: center; align-items: center;
-   - For clocks: hands MUST use transform-origin: bottom center; and position: absolute;
-   - Always set explicit width/height on positioned elements
+1. Use PROPER CSS positioning:
+   - Flexbox/Grid for layouts: display: flex; justify-content: center; align-items: center;
+   - For clocks: transform-origin: bottom center; position: absolute;
+   - Always set explicit width/height
 
-2. For ANALOG CLOCKS specifically:
-   - Clock face: position: relative; border-radius: 50%;
-   - Hands: position: absolute; left: 50%; transform-origin: bottom center;
-   - Hour hand: shorter, wider
-   - Minute hand: longer, thinner  
-   - Second hand: longest, thinnest, red
-   - Use transform: translateX(-50%) rotate(Xdeg) for rotation
-
-3. Code format - USE EXACT FILENAMES:
+2. Code format - USE EXACT FILENAMES:
 ```index.html
 <complete HTML>
 ```
@@ -121,27 +174,33 @@ CRITICAL RULES:
 <complete JS>
 ```
 
-4. Test your logic mentally before writing - will this actually work?"""
+3. Make it visually polished - good colors, smooth animations, proper spacing.
+4. Test logic mentally - will this actually work?"""
 
-REVIEWER_PROMPT = """You are a senior code reviewer. Check the code for these SPECIFIC issues:
+EYES_PROMPT = """You are a visual QA expert reviewing a screenshot of a web application.
 
-1. CSS POSITIONING BUGS:
-   - Are elements properly centered? (check for display:flex + justify/align)
-   - For clocks: is transform-origin set correctly on hands?
-   - Are width/height explicitly set?
-
-2. JAVASCRIPT LOGIC:
-   - Are angles calculated correctly? (hours: 30° per hour, minutes: 6° per minute)
-   - Is setInterval used for animation?
-   - Are DOM elements selected correctly?
-
-3. VISUAL CORRECTNESS:
-   - Will elements overlap incorrectly?
-   - Are z-index values logical?
+Check for these issues:
+1. LAYOUT: Are elements properly aligned and centered?
+2. OVERLAP: Do any elements overlap incorrectly?
+3. VISIBILITY: Is everything visible and readable?
+4. PROPORTIONS: Are sizes and spacing correct?
+5. FUNCTIONALITY: Does it look like it would work?
 
 Respond with:
-- "✅ Code looks correct" if no issues found
-- "⚠️ Found issues:" + specific problems + "Here's the fix:" + corrected code"""
+- "✅ Looks good!" if no visual issues
+- "👁️ Visual issues found:" + specific problems + suggestions to fix
+
+Be specific about what's wrong and where."""
+
+DEBUGGER_PROMPT = """You are a senior code reviewer. Check for:
+
+1. CSS BUGS: Wrong positioning, missing transform-origin, bad z-index
+2. JS BUGS: Logic errors, wrong calculations, missing event handlers
+3. HTML BUGS: Missing elements, wrong structure
+
+Respond with:
+- "✅ Code looks correct" if no issues
+- "🔧 Issues found:" + specific bugs + "Fix:" + corrected code snippets"""
 
 # ===== API Routes =====
 
@@ -153,100 +212,148 @@ async def root():
 async def chat(request: ChatRequest):
     if not request.api_key:
         raise HTTPException(status_code=400, detail="API key required")
-    if not request.models:
-        raise HTTPException(status_code=400, detail="Select at least one model")
     
     responses = []
     
-    # === 1 MODEL: Simple generation ===
-    if len(request.models) == 1:
-        model = request.models[0]
-        name = get_short_name(model)
-        
-        messages = [
-            {"role": "system", "content": CODE_EXPERT_PROMPT},
-            {"role": "user", "content": request.message}
-        ]
-        
-        # Add history
-        for msg in request.conversation_history:
-            if msg.role == 'user':
-                messages.append({"role": "user", "content": msg.content})
-            elif msg.role == 'assistant':
-                messages.append({"role": "assistant", "content": msg.content})
-        
-        messages.append({"role": "user", "content": request.message})
-        
-        try:
-            result = await call_model(model, messages, request.api_key)
-            return ChatResponse(responses=[ModelResponse(**result)])
-        except Exception as e:
-            return ChatResponse(responses=[ModelResponse(
-                model=model, content=f"❌ Error: {str(e)}", metadata={}
-            )])
+    # Extract roles from request
+    roles = request.roles or {}
     
-    # === 2+ MODELS: Collaboration ===
-    model1, model2 = request.models[0], request.models[1]
-    name1, name2 = get_short_name(model1), get_short_name(model2)
+    # Get enabled roles with models
+    planner = roles.get('planner', {})
+    designer = roles.get('designer', {})
+    coder = roles.get('coder', {})
+    eyes = roles.get('eyes', {})
+    debugger = roles.get('debugger', {})
+    
+    # Fallback to legacy models if no roles
+    if not any([planner.get('model'), coder.get('model')]):
+        if request.models:
+            coder = {'model': request.models[0], 'enabled': True}
+            if len(request.models) > 1:
+                debugger = {'model': request.models[1], 'enabled': True}
+    
+    # Must have at least coder
+    if not coder.get('model'):
+        raise HTTPException(status_code=400, detail="At least Coder role must have a model assigned")
     
     is_new = len(request.conversation_history) == 0
     
     if is_new:
-        # STEP 1: Model 1 creates code
-        logger.info(f"[Collab] {name1} generating code...")
+        plan_text = ""
+        design_text = ""
         
-        messages1 = [
-            {"role": "system", "content": CODE_EXPERT_PROMPT},
-            {"role": "user", "content": request.message}
-        ]
+        # === STEP 1: PLANNER ===
+        if planner.get('enabled') and planner.get('model'):
+            logger.info(f"[🎯 Planner] {get_name(planner['model'])}")
+            try:
+                result = await call_model(
+                    planner['model'],
+                    [{"role": "system", "content": PLANNER_PROMPT}, {"role": "user", "content": request.message}],
+                    request.api_key,
+                    max_tokens=800
+                )
+                plan_text = result['content']
+                responses.append(ModelResponse(
+                    model=planner['model'],
+                    content=plan_text,
+                    metadata={"phase": "planner", "role": "Planner"}
+                ))
+            except Exception as e:
+                logger.error(f"Planner error: {e}")
+        
+        # === STEP 2: DESIGNER (optional) ===
+        if designer.get('enabled') and designer.get('model'):
+            logger.info(f"[🎨 Designer] {get_name(designer['model'])}")
+            try:
+                design_prompt = f"{DESIGNER_PROMPT}\n\nTask: {request.message}"
+                if plan_text:
+                    design_prompt += f"\n\nPlan:\n{plan_text}"
+                
+                result = await call_model(
+                    designer['model'],
+                    [{"role": "user", "content": design_prompt}],
+                    request.api_key,
+                    max_tokens=600
+                )
+                design_text = result['content']
+                responses.append(ModelResponse(
+                    model=designer['model'],
+                    content=design_text,
+                    metadata={"phase": "designer", "role": "Designer"}
+                ))
+            except Exception as e:
+                logger.error(f"Designer error: {e}")
+        
+        # === STEP 3: CODER ===
+        logger.info(f"[💻 Coder] {get_name(coder['model'])}")
+        coder_prompt = f"{CODER_PROMPT}\n\nBuild this: {request.message}"
+        if plan_text:
+            coder_prompt += f"\n\nPlan:\n{plan_text}"
+        if design_text:
+            coder_prompt += f"\n\nDesign specs:\n{design_text}"
         
         try:
-            result1 = await call_model(model1, messages1, request.api_key, max_tokens=4000)
+            result = await call_model(
+                coder['model'],
+                [{"role": "system", "content": CODER_PROMPT}, {"role": "user", "content": coder_prompt}],
+                request.api_key,
+                max_tokens=4000
+            )
+            code_content = result['content']
             responses.append(ModelResponse(
-                model=model1,
-                content=result1['content'],
-                metadata={"phase": "code", "role": "developer"}
+                model=coder['model'],
+                content=code_content,
+                metadata={"phase": "coder", "role": "Coder"}
             ))
         except Exception as e:
             return ChatResponse(responses=[ModelResponse(
-                model=model1, content=f"❌ {name1} error: {str(e)}", metadata={}
+                model=coder['model'], content=f"❌ Coder error: {str(e)}", metadata={}
             )])
         
-        # STEP 2: Model 2 reviews
-        logger.info(f"[Collab] {name2} reviewing...")
+        # === STEP 4: EYES - Visual Review (if screenshot provided) ===
+        if eyes.get('enabled') and eyes.get('model') and request.screenshot_base64:
+            logger.info(f"[👁️ Eyes] {get_name(eyes['model'])} reviewing screenshot")
+            try:
+                result = await call_vision_model(
+                    eyes['model'],
+                    EYES_PROMPT + f"\n\nThis should be: {request.message}",
+                    request.screenshot_base64,
+                    request.api_key
+                )
+                responses.append(ModelResponse(
+                    model=eyes['model'],
+                    content=result['content'],
+                    metadata={"phase": "eyes", "role": "Eyes"}
+                ))
+            except Exception as e:
+                logger.error(f"Eyes error: {e}")
         
-        review_prompt = f"""{REVIEWER_PROMPT}
-
-User asked for: {request.message}
-
-{name1} wrote this code:
-{result1['content']}
-
-Review it now."""
-        
-        messages2 = [
-            {"role": "system", "content": "You are a code reviewer."},
-            {"role": "user", "content": review_prompt}
-        ]
-        
-        try:
-            result2 = await call_model(model2, messages2, request.api_key, max_tokens=2000)
-            responses.append(ModelResponse(
-                model=model2,
-                content=result2['content'],
-                metadata={"phase": "review", "role": "reviewer"}
-            ))
-            
-            # STEP 3: If issues found, Model 1 fixes
-            review_text = result2['content'].lower()
-            if '⚠️' in result2['content'] or 'issue' in review_text or 'bug' in review_text or 'problem' in review_text:
-                logger.info(f"[Collab] {name1} fixing issues...")
+        # === STEP 5: DEBUGGER ===
+        if debugger.get('enabled') and debugger.get('model'):
+            logger.info(f"[🔧 Debugger] {get_name(debugger['model'])}")
+            try:
+                debug_prompt = f"{DEBUGGER_PROMPT}\n\nTask: {request.message}\n\nCode to review:\n{code_content[:3000]}"
                 
-                fix_prompt = f"""{name2} found issues in your code:
-{result2['content']}
+                result = await call_model(
+                    debugger['model'],
+                    [{"role": "user", "content": debug_prompt}],
+                    request.api_key,
+                    max_tokens=1500
+                )
+                debug_result = result['content']
+                responses.append(ModelResponse(
+                    model=debugger['model'],
+                    content=debug_result,
+                    metadata={"phase": "debugger", "role": "Debugger"}
+                ))
+                
+                # If debugger found issues, have coder fix them
+                if '🔧' in debug_result or 'issue' in debug_result.lower() or 'bug' in debug_result.lower():
+                    logger.info(f"[💻 Coder] Fixing issues...")
+                    fix_prompt = f"""The debugger found issues:
+{debug_result}
 
 Fix these issues and provide the COMPLETE corrected code.
-Use the same format:
 ```index.html
 ...
 ```
@@ -256,55 +363,61 @@ Use the same format:
 ```script.js
 ...
 ```"""
-                
-                messages_fix = [
-                    {"role": "system", "content": CODE_EXPERT_PROMPT},
-                    {"role": "assistant", "content": result1['content']},
-                    {"role": "user", "content": fix_prompt}
-                ]
-                
-                try:
-                    result_fix = await call_model(model1, messages_fix, request.api_key, max_tokens=4000)
-                    responses.append(ModelResponse(
-                        model=model1,
-                        content=f"🔧 Fixed version:\n\n{result_fix['content']}",
-                        metadata={"phase": "fix", "role": "developer"}
-                    ))
-                except Exception as e:
-                    logger.error(f"Fix error: {e}")
-                    
-        except Exception as e:
-            responses.append(ModelResponse(
-                model=model2, content=f"✅ Code submitted (review skipped)", metadata={}
-            ))
+                    try:
+                        fix_result = await call_model(
+                            coder['model'],
+                            [{"role": "assistant", "content": code_content}, {"role": "user", "content": fix_prompt}],
+                            request.api_key,
+                            max_tokens=4000
+                        )
+                        responses.append(ModelResponse(
+                            model=coder['model'],
+                            content=f"🔧 Fixed version:\n\n{fix_result['content']}",
+                            metadata={"phase": "fix", "role": "Coder"}
+                        ))
+                    except Exception as e:
+                        logger.error(f"Fix error: {e}")
+                        
+            except Exception as e:
+                logger.error(f"Debugger error: {e}")
     
     else:
-        # Follow-up message - just respond
-        messages = [
-            {"role": "system", "content": CODE_EXPERT_PROMPT}
-        ]
+        # Follow-up - just use coder
+        messages = [{"role": "system", "content": CODER_PROMPT}]
         for msg in request.conversation_history:
             messages.append({"role": msg.role, "content": msg.content})
         messages.append({"role": "user", "content": request.message})
         
         try:
-            result = await call_model(model1, messages, request.api_key)
+            result = await call_model(coder['model'], messages, request.api_key)
             responses.append(ModelResponse(**result))
         except Exception as e:
             responses.append(ModelResponse(
-                model=model1, content=f"❌ Error: {str(e)}", metadata={}
+                model=coder['model'], content=f"❌ Error: {str(e)}", metadata={}
             ))
     
     return ChatResponse(responses=responses)
 
 
+@api_router.post("/review-screenshot")
+async def review_screenshot(model: str, api_key: str, screenshot_base64: str, task_description: str = ""):
+    """Separate endpoint to review a screenshot with vision model."""
+    try:
+        result = await call_vision_model(
+            model,
+            EYES_PROMPT + (f"\n\nThis should be: {task_description}" if task_description else ""),
+            screenshot_base64,
+            api_key
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.post("/ping-model")
 async def ping_model(model: str, api_key: str):
     try:
-        result = await call_model(
-            model, [{"role": "user", "content": "Say OK"}], 
-            api_key, max_tokens=10
-        )
+        result = await call_model(model, [{"role": "user", "content": "Say OK"}], api_key, max_tokens=10)
         return {"status": "working", "model": model}
     except Exception as e:
         return {"status": "unavailable", "model": model, "error": str(e)[:100]}
