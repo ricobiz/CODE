@@ -74,7 +74,8 @@ export const useOpenRouter = () => {
             role: 'assistant',
             content: modelResponse.content,
             model: modelResponse.model,
-            metadata: modelResponse.metadata
+            metadata: modelResponse.metadata,
+            image_url: modelResponse.image_url  // Designer image
           });
         });
         
