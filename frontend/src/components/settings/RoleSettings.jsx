@@ -200,10 +200,10 @@ export const RoleSettings = () => {
       <div className="mt-6 p-4 rounded-lg bg-muted/30 border border-muted">
         <h4 className="text-sm font-medium mb-2">Workflow</h4>
         <div className="text-xs text-muted-foreground space-y-1">
-          <p>🎯 <strong>Planner</strong> → Creates the architecture plan</p>
-          <p>🎨 <strong>Designer</strong> → Designs visuals (optional, needs vision model)</p>
-          <p>💻 <strong>Coder</strong> → Writes the actual code</p>
-          <p>👁️ <strong>Eyes</strong> → Reviews screenshots for visual bugs (needs vision model)</p>
+          <p>🎯 <strong>Planner</strong> → Creates architecture plan</p>
+          <p>🎨 <strong>Designer</strong> → Generates design IMAGE (use Gemini image model)</p>
+          <p>💻 <strong>Coder</strong> → Writes code (sees designer's image if available)</p>
+          <p>👁️ <strong>Eyes</strong> → Reviews screenshot (needs vision model)</p>
           <p>🔧 <strong>Debugger</strong> → Finds and fixes code bugs</p>
         </div>
       </div>
