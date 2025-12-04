@@ -65,10 +65,18 @@ export const RoleSettings = () => {
     loadModels();
   }, [apiKey]);
   
-  // Filter models for vision roles
+  // Filter models for different roles
   const getModelsForRole = (roleKey) => {
-    if (roleKey === 'eyes' || roleKey === 'designer') {
-      // For vision roles, prioritize vision-capable models
+    if (roleKey === 'designer') {
+      // For designer, prioritize image generation models
+      return models.filter(m => 
+        IMAGE_GEN_MODELS.some(ig => m.id.includes(ig.split('/')[1])) ||
+        m.id.includes('image') ||
+        m.id.includes('gemini-2')
+      );
+    }
+    if (roleKey === 'eyes') {
+      // For eyes, prioritize vision-capable models
       return models.filter(m => 
         VISION_MODELS.some(vm => m.id.includes(vm.split('/')[1])) ||
         m.id.includes('vision') ||
