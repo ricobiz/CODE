@@ -1,109 +1,48 @@
-import { useState, useCallback } from 'react';
-import { sendChatMessage } from '../utils/api';
+import { useState } from 'react';
+import axios from 'axios';
 import { useApp } from '../contexts/AppContext';
 import { toast } from 'sonner';
 
 export const useOpenRouter = () => {
-  const { 
-    apiKey, 
-    roles,
-    selectedModels, 
-    messages, 
-    addMessage, 
-    setIsGenerating, 
-    updateFile, 
-    refreshPreview 
-  } = useApp();
-  const [error, setError] = useState(null);
-  
-  const sendMessage = useCallback(async (userMessage, screenshotBase64 = null) => {
-    if (!apiKey) {
-      toast.error('Please set your OpenRouter API key in settings');
+  const { apiKey, selectedModels, addMessage } = useApp();
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const sendMessage = async (message) => {
+    if (!apiKey || selectedModels.length === 0) {
+      toast.error('Please set API key and select at least one model');
       return;
     }
-    
-    // Check if at least coder role has a model
-    const hasCoderModel = roles?.coder?.enabled && roles?.coder?.model;
-    const hasAnyModel = selectedModels.length > 0;
-    
-    if (!hasCoderModel && !hasAnyModel) {
-      toast.error('Please assign a model to the Coder role in settings');
-      return;
-    }
-    
+
+    setIsGenerating(true);
+
     try {
-      setError(null);
-      setIsGenerating(true);
-      
-      // Add user message
-      addMessage({
-        role: 'user',
-        content: userMessage
-      });
-      
-      // Get active roles info
-      const activeRoles = Object.entries(roles || {})
-        .filter(([_, r]) => r.enabled && r.model)
-        .map(([key, _]) => key);
-      
-      if (activeRoles.length > 1) {
-        toast.info(`Team: ${activeRoles.map(r => r.charAt(0).toUpperCase() + r.slice(1)).join(' → ')}`);
-      }
-      
-      // Prepare conversation history
-      const conversationHistory = messages.map(m => ({
-        role: m.role,
-        content: m.content,
-        model: m.model || null
-      }));
-      
-      // Send to backend with roles config
-      const response = await sendChatMessage(
-        userMessage,
-        selectedModels,  // Legacy support
-        apiKey,
-        conversationHistory,
-        roles,  // New roles config
-        screenshotBase64
-      );
-      
-      // Add all model responses
-      if (response.responses) {
-        response.responses.forEach(modelResponse => {
-          addMessage({
-            role: 'assistant',
-            content: modelResponse.content,
-            model: modelResponse.model,
-            metadata: modelResponse.metadata,
-            image_url: modelResponse.image_url  // Designer image
-          });
-        });
-        
-        // Show completion info
-        const phases = response.responses
-          .map(r => r.metadata?.role || r.metadata?.phase)
-          .filter(Boolean);
-        if (phases.length > 1) {
-          toast.success(`Team completed: ${phases.join(' → ')}`);
+      // Use the first selected model to avoid array in API call; resolves the type error
+      const primaryModel = selectedModels[0];
+
+      const response = await axios.post(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+          model: primaryModel,  // Now a string, not an array
+          messages: [{ role: 'user', content: message }],
+          // Add other params as needed (e.g., temperature, max_tokens)
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
         }
-      }
-      
+      );
+
+      const aiResponse = response.data.choices[0].message.content;
+      addMessage({ role: 'assistant', content: aiResponse });
+    } catch (error) {
+      console.error('OpenRouter API error:', error);
+      toast.error('Failed to generate response');
+    } finally {
       setIsGenerating(false);
-      return response;
-      
-    } catch (err) {
-      console.error('OpenRouter error:', err);
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to send message';
-      setError(errorMessage);
-      toast.error(errorMessage);
-      setIsGenerating(false);
-      throw err;
     }
-  }, [apiKey, roles, selectedModels, messages, addMessage, setIsGenerating]);
-  
-  return {
-    sendMessage,
-    error,
-    isGenerating: false
   };
+
+  return { sendMessage, isGenerating };
 };
