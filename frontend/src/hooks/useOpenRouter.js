@@ -39,33 +39,33 @@ export const useOpenRouter = () => {
         return;
       }
 
-      // Make API call for each active role
-      for (const [roleName, modelId] of activeRoles) {
-        const systemContent = getRoleDescription(roleName);
+      // Use only the first active role to avoid API errors with multiple calls
+      const [firstRoleName, firstModelId] = activeRoles[0];
+      const systemContent = getRoleDescription(firstRoleName);
 
-        const response = await axios.post(
-          'https://openrouter.ai/api/v1/chat/completions',
-          {
-            model: modelId,  // String, not array
-            messages: [
-              { role: 'system', content: systemContent },
-              { role: 'user', content: message }
-            ],
-            // Add other params as needed (e.g., temperature: 0.7, max_tokens: 1000)
+      const response = await axios.post(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+          model: firstModelId,  // String, using first model
+          messages: [
+            { role: 'system', content: systemContent },
+            { role: 'user', content: message }
+          ],
+          stream: false,  // Explicit boolean to ensure correct type
+          // Add other params as needed (e.g., temperature: 0.7, max_tokens: 1000)
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
           },
-          {
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+        }
+      );
 
-        const aiResponse = response.data.choices[0].message.content;
-        // Label response with role and simplified model name
-        const modelName = modelId.split('/').pop();
-        addMessage({ role: 'assistant', content: `${roleName.charAt(0).toUpperCase() + roleName.slice(1)} (${modelName}): ${aiResponse}` });
-      }
+      const aiResponse = response.data.choices[0].message.content;
+      // Label response with role and simplified model name
+      const modelName = firstModelId.split('/').pop();
+      addMessage({ role: 'assistant', content: `${firstRoleName.charAt(0).toUpperCase() + firstRoleName.slice(1)} (${modelName}): ${aiResponse}` });
     } catch (error) {
       console.error('OpenRouter API error:', error);
       toast.error('Failed to generate response');
