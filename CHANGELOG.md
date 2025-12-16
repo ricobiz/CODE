@@ -1,0 +1,2 @@
+## [Current Session]
+- Fixed OpenRouter API error by modifying useOpenRouter hook to pass 'model' as a string (using first selected model) instead of an array, resolving 'expected boolean, received array' issue.
