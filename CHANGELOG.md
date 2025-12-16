@@ -1,2 +1,3 @@
 ## [Current Session]
 - Fixed OpenRouter API error by modifying useOpenRouter hook to pass 'model' as a string (using first selected model) instead of an array, resolving 'expected boolean, received array' issue.
+- Implemented multi-agent response in useOpenRouter hook: added role-based system prompts, looped over active roles (from AppContext 'roles' object), made separate API calls for each assigned model, and appended labeled responses (e.g., "Coder (model-name): response") to enable true agent team functionality.
