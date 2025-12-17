@@ -1,78 +1,89 @@
-import { useState } from 'react';
+import { useCallback } from 'react';
 import axios from 'axios';
-import { useApp } from '../contexts/AppContext';
 import { toast } from 'sonner';
-
-const getRoleDescription = (role) => {
-  switch (role) {
-    case 'coder':
-      return 'You are a skilled coder. Provide accurate, efficient code solutions with explanations.';
-    case 'reviewer':
-      return 'You are a code reviewer. Analyze code for bugs, best practices, and suggest improvements.';
-    case 'architect':
-      return 'You are a system architect. Design scalable, maintainable architectures and provide high-level guidance.';
-    case 'tester':
-      return 'You are a tester. Create test cases, identify edge cases, and ensure reliability.';
-    default:
-      return 'You are an AI assistant. Provide helpful, accurate responses.';
-  }
-};
+import { useApp } from '../contexts/AppContext';
 
 export const useOpenRouter = () => {
-  const { apiKey, selectedModels, roles, addMessage } = useApp();
-  const [isGenerating, setIsGenerating] = useState(false);
+  const { apiKey, roles, messages, setMessages, setIsGenerating, chatMode } = useApp();
 
-  const sendMessage = async (message) => {
-    if (!apiKey || selectedModels.length === 0) {
-      toast.error('Please set API key and select at least one model');
+  const sendMessage = useCallback(async (input) => {
+    if (!apiKey) {
+      toast.error('Please set your OpenRouter API key in settings');
       return;
     }
 
+    if (!input?.trim()) return;
+
+    const trimmedInput = input.trim();
+    const userMessage = { role: 'user', content: trimmedInput };
+
+    // Optimistically add user message
+    setMessages((prev) => [...prev, userMessage]);
     setIsGenerating(true);
 
-    try {
-      // Get active roles: only those with assigned model IDs that are in selectedModels
-      const activeRoles = Object.entries(roles || {}).filter(([role, modelId]) => modelId && selectedModels.includes(modelId));
+    const activeRoles = Object.entries(roles).filter(([, role]) => role.enabled);
+    if (activeRoles.length === 0) {
+      toast.error('No active agent roles selected');
+      setIsGenerating(false);
+      return;
+    }
 
-      if (activeRoles.length === 0) {
-        toast.error('No active roles with assigned models');
-        return;
+    try {
+      const agentResponses = [];
+
+      for (const [roleKey, roleConfig] of activeRoles) {
+        const modelId = roleConfig.modelId;
+        if (!modelId) {
+          console.warn(`No model selected for role: ${roleKey}`);
+          continue;
+        }
+
+        // Build role-specific messages (current messages + user input)
+        let roleMessages = [...messages, userMessage];
+        // Add role-based system prompt if defined
+        const systemPrompt = roleConfig.systemPrompt || `You are the ${roleKey} agent. Provide expert assistance in your domain.`;
+        roleMessages.unshift({ role: 'system', content: systemPrompt });
+
+        const requestBody = {
+          model: modelId, // Explicit string
+          messages: roleMessages.map(({ role, content }) => ({ role, content: content || '' })),
+          stream: false, // Explicit boolean to resolve type error
+          temperature: 0.7,
+          max_tokens: 4096,
+        };
+
+        const response = await axios.post(
+          'https://openrouter.ai/api/v1/chat/completions',
+          requestBody,
+          {
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+              'HTTP-Referer': window.location.origin || '',
+              'X-Title': document.title || 'AutoDeploy AI',
+            },
+          }
+        );
+
+        const assistantContent = response.data.choices[0]?.message?.content || '';
+        const modelName = modelId.split('/').pop();
+        agentResponses.push(`${roleKey.charAt(0).toUpperCase() + roleKey.slice(1)} (${modelName}): ${assistantContent}`);
       }
 
-      // Use only the first active role to avoid API errors with multiple calls
-      const [firstRoleName, firstModelId] = activeRoles[0];
-      const systemContent = getRoleDescription(firstRoleName);
-
-      const response = await axios.post(
-        'https://openrouter.ai/api/v1/chat/completions',
-        {
-          model: firstModelId,  // String, using first model
-          messages: [
-            { role: 'system', content: systemContent },
-            { role: 'user', content: message }
-          ],
-          stream: false,  // Explicit boolean to ensure correct type
-          // Add other params as needed (e.g., temperature: 0.7, max_tokens: 1000)
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      const aiResponse = response.data.choices[0].message.content;
-      // Label response with role and simplified model name
-      const modelName = firstModelId.split('/').pop();
-      addMessage({ role: 'assistant', content: `${firstRoleName.charAt(0).toUpperCase() + firstRoleName.slice(1)} (${modelName}): ${aiResponse}` });
+      const combinedResponse = agentResponses.join('\n\n');
+      if (combinedResponse) {
+        setMessages((prev) => [...prev, { role: 'assistant', content: combinedResponse }]);
+      }
     } catch (error) {
-      console.error('OpenRouter API error:', error);
-      toast.error('Failed to generate response');
+      console.error('OpenRouter API Error:', error);
+      const errorMsg = error.response?.data?.error?.message || error.message || 'Failed to generate response';
+      toast.error(`OpenRouter Error: ${errorMsg}`);
+      // Optionally remove optimistic user message or add error message
+      // setMessages((prev) => prev.slice(0, -1));
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [apiKey, roles, messages, setMessages, setIsGenerating, chatMode]);
 
-  return { sendMessage, isGenerating };
+  return { sendMessage };
 };
